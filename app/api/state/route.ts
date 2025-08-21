@@ -1,17 +1,28 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-const url = process.env.SUPABASE_URL!;
-const service = process.env.SUPABASE_SERVICE_ROLE!;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD!;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SERVICE_ROLE =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_ROLE;
 
-const supabase = createClient(url, service, { auth: { persistSession: false } });
-
-// Schema: CREATE TABLE states (league text primary key, data jsonb, updated_at timestamptz default now());
 const LEAGUE = process.env.LEAGUE_ID || "default";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
+
+function getAdminClient(): SupabaseClient | null {
+  if (!SUPABASE_URL || !SERVICE_ROLE) return null;
+  return createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
+}
 
 export async function GET() {
   try {
+    const supabase = getAdminClient();
+    if (!supabase) {
+      return NextResponse.json(
+        { error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY" },
+        { status: 500 }
+      );
+    }
+
     const { data, error } = await supabase
       .from("states")
       .select("data")
@@ -34,16 +45,23 @@ export async function GET() {
       return NextResponse.json(seed);
     }
 
-    // data può essere in data.data (Supabase) o già plain
-    return NextResponse.json((data as any).data ?? data);
+    const payload = (data as any).data ?? data;
+    return NextResponse.json(payload);
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return NextResponse.json({ error: e.message || String(e) }, { status: 500 });
   }
 }
 
-// Admin save: sovrascrive l'intero stato (squadre, calendario, risultati, ecc.)
 export async function POST(req: Request) {
   try {
+    const supabase = getAdminClient();
+    if (!supabase) {
+      return NextResponse.json(
+        { error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY" },
+        { status: 500 }
+      );
+    }
+
     const body = await req.json();
     const { password, data } = body as { password?: string; data?: any };
 
@@ -61,6 +79,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return NextResponse.json({ error: e.message || String(e) }, { status: 500 });
   }
 }

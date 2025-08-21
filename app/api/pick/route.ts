@@ -1,18 +1,34 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-const url = process.env.SUPABASE_URL!;
-const service = process.env.SUPABASE_SERVICE_ROLE!;
-const supabase = createClient(url, service, { auth: { persistSession: false } });
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SERVICE_ROLE =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_ROLE;
 
 const LEAGUE = process.env.LEAGUE_ID || "default";
 
-// Body: { email, name, week, matchNumber, pick }
+function getAdminClient(): SupabaseClient | null {
+  if (!SUPABASE_URL || !SERVICE_ROLE) return null;
+  return createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
+}
+
 export async function POST(req: Request) {
   try {
+    const supabase = getAdminClient();
+    if (!supabase) {
+      return NextResponse.json(
+        { error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY" },
+        { status: 500 }
+      );
+    }
+
     const body = await req.json();
     const { email, name, week, matchNumber, pick } = body as {
-      email: string; name: string; week: number; matchNumber: number; pick: '1'|'X'|'2';
+      email: string;
+      name: string;
+      week: number;
+      matchNumber: number;
+      pick: "1" | "X" | "2";
     };
 
     if (!email || !name || !week || !matchNumber || !pick) {
@@ -26,7 +42,9 @@ export async function POST(req: Request) {
       .maybeSingle();
 
     if (error) throw error;
-    if (!data) return NextResponse.json({ error: "League not initialized" }, { status: 400 });
+    if (!data) {
+      return NextResponse.json({ error: "League not initialized" }, { status: 400 });
+    }
 
     const state = (data as any).data ?? data;
 
@@ -40,6 +58,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return NextResponse.json({ error: e.message || String(e) }, { status: 500 });
   }
 }
