@@ -1,4 +1,5 @@
 "use client";
+
 import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Download, Upload, Trophy, Settings as SettingsIcon, CalendarDays, CheckCircle2, User, Star, Shield, BarChart3, RefreshCw, LogOut, Edit3, RotateCcw, ArrowLeftRight } from "lucide-react";
@@ -6,30 +7,21 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from "recha
 import { toast } from "sonner";
 
 /**
- * Schedine FantaWizz CTA 25–26 — Prediction League (single-file React app)
- * Tailwind-only UI (no shadcn), TypeScript-safe for Vercel builds
+ * Fantatipster — Prediction League (single-file React app)
+ * Tailwind-only UI (no shadcn), strict TypeScript, Next.js App Router
  */
 
 // ------------------ Tiny UI (Tailwind-only) ------------------
-// Types
+// shared div props that accept all HTML attributes (style, onClick, etc.)
+type DivProps = React.HTMLAttributes<HTMLDivElement> & { children?: React.ReactNode };
 
 type Variant = "primary" | "secondary" | "ghost" | "outline" | "destructive";
 type Size = "sm" | "md" | "lg";
 
-type DivProps = React.PropsWithChildren<{ className?: string }>;
-
 interface BtnProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  children: React.ReactNode;
-  onClick?: () => void;
   variant?: Variant;
   size?: Size;
-  className?: string;
 }
-
-interface BadgeProps { children: React.ReactNode; variant?: "default" | "secondary" | "outline" | "destructive"; className?: string }
-interface ModalProps { open: boolean; onClose: () => void; title: string; description?: string; children: React.ReactNode; footer?: React.ReactNode }
-interface TabsConfig { value: string; label: string; content: React.ReactNode }
-interface TabsProps { value: string; onValueChange: (v: string) => void; tabs: TabsConfig[] }
 
 function Btn({ children, onClick, variant = "primary", size = "md", className = "", type = "button", ...rest }: BtnProps) {
   const base = "inline-flex items-center justify-center gap-2 rounded-2xl font-medium transition active:scale-[0.98]";
@@ -45,31 +37,39 @@ function Btn({ children, onClick, variant = "primary", size = "md", className = 
     <button type={type} onClick={onClick} className={`${base} ${sizes[size]} ${variants[variant]} ${className}`} {...rest}>{children}</button>
   );
 }
-function Card({ children, className = "" }: DivProps) { return <div className={`rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm ${className}`}>{children}</div>; }
-function CardHeader({ children, className = "" }: DivProps) { return <div className={`p-5 ${className}`}>{children}</div>; }
-function CardTitle({ children, className = "" }: DivProps) { return <div className={`text-xl font-semibold ${className}`}>{children}</div>; }
-function CardDescription({ children, className = "" }: DivProps) { return <div className={`text-sm text-zinc-500 dark:text-zinc-400 ${className}`}>{children}</div>; }
-function CardContent({ children, className = "" }: DivProps) { return <div className={`p-5 pt-0 ${className}`}>{children}</div>; }
-function Separator({ className = "" }: { className?: string }) { return <div className={`h-px w-full bg-zinc-200 dark:bg-zinc-800 ${className}`}></div>; }
-function Badge({ children, variant = "default", className = "" }: BadgeProps) {
-  const variants: Record<NonNullable<BadgeProps["variant"]>, string> = {
+function Card({ children, className = "", ...rest }: DivProps) { return <div {...rest} className={`rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm ${className}`}>{children}</div>; }
+function CardHeader({ children, className = "", ...rest }: DivProps) { return <div {...rest} className={`p-5 ${className}`}>{children}</div>; }
+function CardTitle({ children, className = "", ...rest }: DivProps) { return <div {...rest} className={`text-xl font-semibold ${className}`}>{children}</div>; }
+function CardDescription({ children, className = "", ...rest }: DivProps) { return <div {...rest} className={`text-sm text-zinc-500 dark:text-zinc-400 ${className}`}>{children}</div>; }
+function CardContent({ children, className = "", ...rest }: DivProps) { return <div {...rest} className={`p-5 pt-0 ${className}`}>{children}</div>; }
+function Separator({ className = "", ...rest }: { className?: string } & React.HTMLAttributes<HTMLDivElement>) { return <div {...rest} className={`h-px w-full bg-zinc-200 dark:bg-zinc-800 ${className}`}></div>; }
+function Badge({ children, variant = "default", className = "", ...rest }: { children?: React.ReactNode; variant?: "default" | "secondary" | "outline" | "destructive"; className?: string } & DivProps) {
+  const variants: Record<NonNullable<{ variant?: "default" | "secondary" | "outline" | "destructive" }["variant"]>, string> = {
     default: "bg-black text-white",
     secondary: "bg-zinc-200 dark:bg-zinc-700 text-zinc-900 dark:text-white",
     outline: "border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200",
     destructive: "bg-red-600 text-white",
   };
-  return <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs ${variants[variant]} ${className}`}>{children}</span>;
+  return <span {...rest} className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs ${variants[variant]} ${className}`}>{children}</span>;
 }
-function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
-  const { className = "", ...rest } = props;
-  return <input {...rest} className={`w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-zinc-400 ${className}`} />
-}
+function Input(props: React.InputHTMLAttributes<HTMLInputElement>) { const { className = "", ...rest } = props; return <input {...rest} className={`w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-zinc-400 ${className}`} /> }
 function Label({ children, className = "", ...rest }: React.LabelHTMLAttributes<HTMLLabelElement>) { return <label {...rest} className={`block text-sm font-medium mb-1 ${className}`}>{children}</label>; }
-function SelectBox({ value, onChange, children, className = "", ...rest }: { value: string; onChange: (v: string) => void; children: React.ReactNode; className?: string } & React.SelectHTMLAttributes<HTMLSelectElement>) {
+
+// SelectBox con onValueChange(string) per evitare union types nei consumer
+type SelectBoxProps = {
+  value: string;
+  onValueChange: (v: string) => void;
+  children: React.ReactNode;
+  className?: string;
+} & Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'onChange' | 'value' | 'children'>;
+function SelectBox({ value, onValueChange, children, className = "", ...rest }: SelectBoxProps) {
   return (
-    <select value={value} onChange={(e)=>onChange(e.target.value)} className={`w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-transparent px-3 py-2 ${className}`} {...rest}>{children}</select>
+    <select value={value} onChange={(e) => onValueChange(e.target.value)} className={`w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-transparent px-3 py-2 ${className}`} {...rest}>
+      {children}
+    </select>
   );
 }
+
 function SwitchToggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (
     <button aria-pressed={checked} onClick={() => onChange(!checked)} className={`h-6 w-11 rounded-full relative transition ${checked ? 'bg-black' : 'bg-zinc-300 dark:bg-zinc-700'}`}>
@@ -77,7 +77,7 @@ function SwitchToggle({ checked, onChange }: { checked: boolean; onChange: (v: b
     </button>
   );
 }
-function Modal({ open, onClose, title, description, children, footer }: ModalProps) {
+function Modal({ open, onClose, title, description, children, footer }: { open: boolean; onClose: () => void; title: string; description?: string; children: React.ReactNode; footer?: React.ReactNode }) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50">
@@ -96,7 +96,7 @@ function Modal({ open, onClose, title, description, children, footer }: ModalPro
     </div>
   );
 }
-function Tabs({ value, onValueChange, tabs }: TabsProps) {
+function Tabs({ value, onValueChange, tabs }: { value: string; onValueChange: (v: string) => void; tabs: { value: string; label: string; content: React.ReactNode }[] }) {
   return (
     <>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
@@ -112,7 +112,7 @@ function Tabs({ value, onValueChange, tabs }: TabsProps) {
 }
 
 // ------------------ App Logic ------------------
-const LS_KEY = "veggente_state_v3"; // new key to avoid old shapes
+const LS_KEY = "fantatipster_state_v1";
 function loadState() { try { if (typeof window === 'undefined') return null; const raw = localStorage.getItem(LS_KEY); return raw? JSON.parse(raw): null; } catch { return null; } }
 function saveState(state: any){ try { if (typeof window !== 'undefined') localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch {} }
 const defaultTeams = Array.from({ length: 10 }, (_, i) => `Team ${i + 1}`);
@@ -122,7 +122,7 @@ function generateRoundRobin(teams: string[]){ const n=teams.length, arr=[...team
 function toSchedule(teams: string[], weeksWanted=38){ const rr1=generateRoundRobin(teams), rr2=generateRoundRobin([...teams]).map(w=>w.map(m=>({home:m.away, away:m.home}))); let weeks=[...rr1,...rr2]; while(weeks.length<weeksWanted){ weeks=[...weeks, ...weeks.map(w=>w.map(m=>({home:m.away, away:m.home})))]; } weeks=weeks.slice(0,weeksWanted); const out: {week:number; matchNumber:number; home:string; away:string}[]=[]; weeks.forEach((w,wi)=> w.slice(0,5).forEach((m,mi)=> out.push({week:wi+1, matchNumber:mi+1, home:m.home, away:m.away}))); return out; }
 function resultToSign(h: any,a: any){ if(h===""||a===""||h==null||a==null) return ""; const hg=Number(h), ag=Number(a); if(Number.isNaN(hg)||Number.isNaN(ag)) return ""; return hg===ag?"X":(hg>ag?"1":"2"); }
 
-export default function VeggenteApp(){
+export default function Fantatipster(){
   const persisted = loadState();
   const [user, setUser] = useState<{name:string; email:string}>(persisted?.user || { name: "", email: "" });
   const [settings, setSettings] = useState<typeof defaultSettings>(persisted?.settings || defaultSettings);
@@ -133,7 +133,6 @@ export default function VeggenteApp(){
   const [week, setWeek] = useState<number>(persisted?.week || 1);
   const [adminMode, setAdminMode] = useState<boolean>(persisted?.adminMode || false);
 
-  // editor stato
   const [modalOpen, setModalOpen] = useState<boolean>(false);
   const [scheduleDraft, setScheduleDraft] = useState<{week:number; matchNumber:number; home:string; away:string}[]>([]);
 
@@ -169,7 +168,7 @@ export default function VeggenteApp(){
       <div className="flex items-center gap-3">
         <motion.div initial={{ rotate:-8, scale:0.9 }} animate={{ rotate:0, scale:1 }} className="rounded-2xl p-2 shadow"><Star className="w-6 h-6"/></motion.div>
         <div>
-          <div className="text-2xl font-bold">Schedine FantaWizz CTA 25–26</div>
+          <div className="text-2xl font-bold">Fantatipster — Prediction League</div>
           <div className="text-sm text-zinc-500">{settings.weeks} settimane · 10 squadre · 5 partite/sett.</div>
         </div>
       </div>
@@ -194,7 +193,7 @@ export default function VeggenteApp(){
 
   function WeekSelector(){ return (
     <div className="flex items-center gap-3"><CalendarDays className="w-4 h-4"/><Label>Settimana</Label>
-      <SelectBox value={String(week)} onChange={(v)=> setWeek(Number(v))} className="w-24">
+      <SelectBox value={String(week)} onValueChange={(v)=> setWeek(Number(v))} className="w-24">
         {Array.from({length:settings.weeks},(_,i)=> i+1).map(w=> <option key={w} value={w}>{w}</option>)}
       </SelectBox>
       <Separator className="h-6 w-px"/>
@@ -250,15 +249,44 @@ export default function VeggenteApp(){
   function LeaderboardTab(){ return (
     <div className="grid gap-6">
       <Card className="border-0 shadow-lg"><CardHeader><CardTitle className="flex items-center gap-2"><Trophy className="w-5 h-5"/> Classifica generale</CardTitle><CardDescription>Ordinata per punti totali, poi corretti, poi settimane perfette.</CardDescription></CardHeader>
-      <CardContent><div className="grid grid-cols-12 text-sm font-medium mb-2"><div className="col-span-5">Partecipante</div><div className="col-span-2 text-right">Corretti</div><div className="col-span-2 text-right">Perfette</div><div className="col-span-3 text-right">Punti</div></div><Separator className="mb-2"/>{leaderboard.length===0? (<div className="text-zinc-500">Ancora nessun dato. Inserisci risultati e schedine.</div>): null}{leaderboard.map((r,idx)=> (
-        <div key={r.email} className="grid grid-cols-12 py-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 px-2"><div className="col-span-5 flex items-center gap-2"><Badge variant={idx===0? 'default':'secondary'} className="w-6 justify-center">{idx+1}</Badge><span>{r.name}</span></div><div className="col-span-2 text-right">{r.correct}</div><div className="col-span-2 text-right">{r.perfects}</div><div className="col-span-3 text-right font-semibold">{r.points}</div></div>
-      ))}
+      <CardContent>
+        <div className="grid grid-cols-12 text-sm font-medium mb-2">
+          <div className="col-span-5">Partecipante</div>
+          <div className="col-span-2 text-right">Corretti</div>
+          <div className="col-span-2 text-right">Perfette</div>
+          <div className="col-span-3 text-right">Punti</div>
+        </div>
+        <Separator className="mb-2"/>
+        {leaderboard.length===0? (<div className="text-zinc-500">Ancora nessun dato. Inserisci risultati e schedine.</div>): null}
+        {leaderboard.map((r,idx)=> (
+          <div key={r.email} className="grid grid-cols-12 py-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 px-2">
+            <div className="col-span-5 flex items-center gap-2"><Badge variant={idx===0? 'default':'secondary'} className="w-6 justify-center">{idx+1}</Badge><span>{r.name}</span></div>
+            <div className="col-span-2 text-right">{r.correct}</div>
+            <div className="col-span-2 text-right">{r.perfects}</div>
+            <div className="col-span-3 text-right font-semibold">{r.points}</div>
+          </div>
+        ))}
       </CardContent></Card>
 
       {user?.email && (
-        <Card className="border-0 shadow-md"><CardHeader><CardTitle className="flex items-center gap-2"><BarChart3 className="w-5 h-5" /> Andamento settimanale — {user.name || user.email} (v2)
-</CardTitle><CardDescription>Punti per settimana</CardDescription></CardHeader>
-        <CardContent><div style={{width:'100%', height:260}}>$1</div></CardContent></Card>
+        <Card className="border-0 shadow-md">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><BarChart3 className="w-5 h-5"/> Andamento settimanale — {user.name||user.email}</CardTitle>
+            <CardDescription>Punti per settimana</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div style={{width:'100%', height:260}}>
+              <ResponsiveContainer>
+                <BarChart data={myWeeklyData}>
+                  <XAxis dataKey="week" hide={false} />
+                  <YAxis allowDecimals={false} />
+                  <Tooltip />
+                  <Bar dataKey="points" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   ); }
@@ -267,10 +295,19 @@ export default function VeggenteApp(){
     return (
       <div className="grid md:grid-cols-2 gap-6">
         <Card className="border-0 shadow-md"><CardHeader><CardTitle className="flex items-center gap-2"><SettingsIcon className="w-5 h-5"/> Parametri</CardTitle><CardDescription>Personalizza punteggi e regole base</CardDescription></CardHeader>
-        <CardContent className="grid gap-4"><div className="grid grid-cols-2 gap-4"><div><Label>Punti per pronostico corretto</Label><Input type="number" value={settings.pointsCorrect} onChange={(e)=> setSettings({...settings, pointsCorrect: Number((e.target as HTMLInputElement).value||0)})}/></div><div><Label>Bonus settimana perfetta</Label><Input type="number" value={settings.bonusPerfectWeek} onChange={(e)=> setSettings({...settings, bonusPerfectWeek: Number((e.target as HTMLInputElement).value||0)})}/></div></div>
-        <div className="flex items-center gap-2"><SwitchToggle checked={settings.allowDraw} onChange={(v)=> setSettings({...settings, allowDraw:v})}/><span>Permetti segno "X" (pareggio)</span></div>
-        <Separator/>
-        <div className="grid grid-cols-3 gap-4"><div><Label>Settimane</Label><Input type="number" value={settings.weeks} onChange={(e)=> setSettings({...settings, weeks: Number((e.target as HTMLInputElement).value||1)})}/></div><div><Label>Squadre</Label><Input type="number" value={settings.numTeams} onChange={(e)=> setSettings({...settings, numTeams: Number((e.target as HTMLInputElement).value||10)})}/></div><div><Label>Match / settimana</Label><Input type="number" value={settings.matchesPerWeek} onChange={()=>{}}/></div></div></CardContent></Card>
+        <CardContent className="grid gap-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div><Label>Punti per pronostico corretto</Label><Input type="number" value={settings.pointsCorrect} onChange={(e)=> setSettings({...settings, pointsCorrect: Number((e.target as HTMLInputElement).value||0)})}/></div>
+            <div><Label>Bonus settimana perfetta</Label><Input type="number" value={settings.bonusPerfectWeek} onChange={(e)=> setSettings({...settings, bonusPerfectWeek: Number((e.target as HTMLInputElement).value||0)})}/></div>
+          </div>
+          <div className="flex items-center gap-2"><SwitchToggle checked={settings.allowDraw} onChange={(v)=> setSettings({...settings, allowDraw:v})}/><span>Permetti segno "X" (pareggio)</span></div>
+          <Separator/>
+          <div className="grid grid-cols-3 gap-4">
+            <div><Label>Settimane</Label><Input type="number" value={settings.weeks} onChange={(e)=> setSettings({...settings, weeks: Number((e.target as HTMLInputElement).value||1)})}/></div>
+            <div><Label>Squadre</Label><Input type="number" value={settings.numTeams} onChange={(e)=> setSettings({...settings, numTeams: Number((e.target as HTMLInputElement).value||10)})}/></div>
+            <div><Label>Match / settimana</Label><Input type="number" value={settings.matchesPerWeek} onChange={()=>{}}/></div>
+          </div>
+        </CardContent></Card>
 
         <Card className="border-0 shadow-md"><CardHeader className="flex justify-between items-center"><div><CardTitle>Squadre & Calendario</CardTitle><CardDescription>Rigenera il calendario o apri l'editor settimana</CardDescription></div><div className="flex items-center gap-2"><Btn variant="outline" size="sm" onClick={()=> setWeek(Math.max(1, week-1))}>◀</Btn><div className="text-sm text-zinc-500">Week {week}</div><Btn variant="outline" size="sm" onClick={()=> setWeek(Math.min(settings.weeks, week+1))}>▶</Btn><Btn variant="secondary" size="sm" onClick={openEditor} className="ml-2"><Edit3 className="w-4 h-4"/> Modifica settimana</Btn></div></CardHeader>
         <CardContent className="grid gap-4"><textarea className="w-full rounded-2xl border border-zinc-300 dark:border-zinc-700 p-3 min-h-[200px]" value={teamInputs} onChange={(e)=> setTeamInputs((e.target as HTMLTextAreaElement).value)}></textarea>
@@ -278,13 +315,13 @@ export default function VeggenteApp(){
       </div>
     ); }
 
-  function DataTab(){ function handleExport(){ const blob=new Blob([JSON.stringify({user, settings, teams, schedule, results, picks}, null, 2)], {type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='veggente_data.json'; a.click(); URL.revokeObjectURL(url);} function handleImport(e: React.ChangeEvent<HTMLInputElement>){ const file=e.target.files?.[0]; if(!file) return; const r=new FileReader(); r.onload=()=>{ try{ const data=JSON.parse(r.result?.toString()||'{}'); setUser(data.user||user); setSettings(data.settings||settings); setTeams(data.teams||teams); setSchedule(data.schedule||schedule); setResults(data.results||results); setPicks(data.picks||picks); toast('Dati importati'); }catch{ toast('JSON non valido'); } }; r.readAsText(file);} return (
+  function DataTab(){ function handleExport(){ const blob=new Blob([JSON.stringify({user, settings, teams, schedule, results, picks}, null, 2)], {type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='fantatipster_data.json'; a.click(); URL.revokeObjectURL(url);} function handleImport(e: React.ChangeEvent<HTMLInputElement>){ const file=e.target.files?.[0]; if(!file) return; const r=new FileReader(); r.onload=()=>{ try{ const data=JSON.parse(r.result?.toString()||'{}'); setUser(data.user||user); setSettings(data.settings||settings); setTeams(data.teams||teams); setSchedule(data.schedule||schedule); setResults(data.results||results); setPicks(data.picks||picks); toast('Dati importati'); }catch{ toast('JSON non valido'); } }; r.readAsText(file);} return (
     <div className="grid md:grid-cols-2 gap-6"><Card className="border-0 shadow-md"><CardHeader><CardTitle className="flex items-center gap-2"><Download className="w-5 h-5"/> Esporta</CardTitle><CardDescription>Scarica un backup/istantanea da condividere con il gruppo</CardDescription></CardHeader><CardContent><Btn onClick={handleExport}>Scarica JSON</Btn></CardContent></Card><Card className="border-0 shadow-md"><CardHeader><CardTitle className="flex items-center gap-2"><Upload className="w-5 h-5"/> Importa</CardTitle><CardDescription>Carica un JSON esportato per sincronizzare i dati</CardDescription></CardHeader><CardContent><input type="file" accept="application/json" onChange={handleImport} className="block w-full"/></CardContent></Card></div>
   ); }
 
   // main render
   const [tab, setTab] = useState("pred");
-  const tabs: TabsConfig[] = [
+  const tabs = [
     { value: "pred", label: "Schedina", content: <PredictionsTab/> },
     { value: "res", label: "Risultati", content: <ResultsTab/> },
     { value: "lead", label: "Classifica", content: <LeaderboardTab/> },
@@ -317,7 +354,7 @@ export default function VeggenteApp(){
               <div className="col-span-1 text-sm text-zinc-500">#{row.matchNumber}</div>
               <div className="col-span-5">
                 <Label className="text-xs">Casa</Label>
-                <SelectBox value={row.home} onChange={(v)=> setDraftField(idx,'home',v)}>
+                <SelectBox value={row.home} onValueChange={(v)=> setDraftField(idx,'home',v)}>
                   <option value="">Seleziona…</option>
                   {teams.map(t=> <option key={t} value={t}>{t}</option>)}
                 </SelectBox>
@@ -325,7 +362,7 @@ export default function VeggenteApp(){
               <div className="col-span-1 text-center">vs</div>
               <div className="col-span-5">
                 <Label className="text-xs">Trasferta</Label>
-                <SelectBox value={row.away} onChange={(v)=> setDraftField(idx,'away',v)}>
+                <SelectBox value={row.away} onValueChange={(v)=> setDraftField(idx,'away',v)}>
                   <option value="">Seleziona…</option>
                   {teams.map(t=> <option key={t} value={t}>{t}</option>)}
                 </SelectBox>
