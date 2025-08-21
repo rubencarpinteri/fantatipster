@@ -256,7 +256,8 @@ export default function VeggenteApp(){
       </CardContent></Card>
 
       {user?.email && (
-        <Card className="border-0 shadow-md"><CardHeader><CardTitle className="flex items-center gap-2"><BarChart3 className="w-5 h-5"/> Andamento settimanale — {user.name||user.email}</CardTitle><CardDescription>Punti per settimana</CardDescription></CardHeader>
+        <Card className="border-0 shadow-md"><CardHeader><CardTitle className="flex items-center gap-2"><BarChart3 className="w-5 h-5" /> Andamento settimanale — {user.name || user.email} (v2)
+</CardTitle><CardDescription>Punti per settimana</CardDescription></CardHeader>
         <CardContent><div style={{width:'100%', height:260}}>$1</div></CardContent></Card>
       )}
     </div>
