@@ -97,7 +97,8 @@ export async function POST(req: Request) {
       const email = String(body.email || "").trim();
       const name = String(body.name || "").trim();
       const week = Number(body.week);
-      const submittedAt = body.submittedAt || new Date().toISOString();
+      const submittedAt = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date());
+
 
       if (!email || !week) {
         return NextResponse.json({ error: "Missing email/week for submit" }, { status: 400 });
