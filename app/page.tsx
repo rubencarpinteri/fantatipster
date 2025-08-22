@@ -622,61 +622,63 @@ export default function Fantatipster(){
         </div>
 
         {/* Bottone di invio schedina */}
-        <div className="flex items-center gap-3">
-          <Btn
-            variant="primary"
-            onClick={async ()=>{
-              const weekPicks = picks[user.email]?.weeks?.[week] || {};
-              const entries = Object.entries(weekPicks) as [string,'1'|'X'|'2'][];
+{(() => {
+  const weekPicks = (picks?.[user.email]?.weeks?.[week]) || {};
+  const entries = Object.entries(weekPicks).filter(([k]) => k !== "_submittedAt") as [string,'1'|'X'|'2'][];
+  const selectedCount = entries.length;
+  const canSend = selectedCount === 5;
 
-              if(entries.length===0){
-                alert("Nessuna selezione per questa settimana.");
-                return;
-              }
+  const handleSubmit = async () => {
+    if (!canSend) { alert(`Devi selezionare 5/5 (ora ${selectedCount}/5)`); return; }
+    try {
+      for (const [mn, val] of entries) {
+        await fetch("/api/pick", {
+          method:"POST",
+          headers:{ "Content-Type":"application/json" },
+          body: JSON.stringify({
+            email: user.email,
+            name: user.name,
+            week,
+            matchNumber: Number(mn),
+            pick: val
+          })
+        });
+      }
+      await fetch("/api/pick", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ email: user.email, name: user.name, week, submit: true })
+      });
 
-              try {
-                // invia tutte le partite selezionate
-                for (const [mn, val] of entries) {
-                  if (mn==="_submittedAt") continue;
-                  await fetch("/api/pick", {
-                    method:"POST",
-                    headers:{ "Content-Type":"application/json" },
-                    body: JSON.stringify({
-                      email: user.email,
-                      name: user.name,
-                      week,
-                      matchNumber: Number(mn),
-                      pick: val
-                    })
-                  });
-                }
+      alert("Schedina inviata ✅");
+      setLastSync(new Date().toISOString());
+    } catch {
+      alert("Errore nell'invio ❌");
+    }
+  };
 
-                // marca la settimana come inviata; il server inserisce il timestamp
-await fetch("/api/pick", {
-  method:"POST",
-  headers:{ "Content-Type":"application/json" },
-  body: JSON.stringify({
-    email: user.email,
-    name: user.name,
-    week,
-    submit: true
-  })
-});
+  return (
+    <div className="flex items-center gap-3">
+      <Btn
+        onClick={handleSubmit}
+        disabled={!canSend}
+        aria-disabled={!canSend}
+        className={`border px-4 py-2
+          bg-gray-700 text-white hover:bg-gray-600
+          dark:bg-gray-700 dark:hover:bg-gray-600
+          border-gray-500
+          ${!canSend ? "opacity-50 cursor-not-allowed" : ""}`}
+        title={canSend ? "Invia schedina" : `Selezionate: ${selectedCount}/5`}
+      >
+        Invia schedina ({selectedCount}/5)
+      </Btn>
+      <span className="text-xs text-zinc-500">
+        Le scelte si salvano SOLO al click su “Invia schedina”.
+      </span>
+    </div>
+  );
+})()}
 
-alert("Schedina inviata ✅");
-setLastSync(new Date().toISOString()); // trigger refresh
- // trigger eventuale ref
-              } catch {
-                alert("Errore nell'invio ❌");
-              }
-            }}
-          >
-            Invia schedina
-          </Btn>
-          <span className="text-xs text-zinc-500">
-            Le scelte si salvano SOLO al click su “Invia schedina”.
-          </span>
-        </div>
       </div>
     );
   }
