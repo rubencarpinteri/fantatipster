@@ -408,6 +408,7 @@ export default function Fantatipster(){
             value={adminInput}
             onChange={(e)=> setAdminInput((e.target as HTMLInputElement).value)}
             placeholder="Password admin"
+            autofocus
           />
         </div>
         <div className="mt-4 flex justify-end gap-2">
