@@ -27,7 +27,7 @@ export async function POST(req: Request) {
 
     const body = await req.json();
 
-    // 1) Carica stato corrente
+    // 1) Leggi stato corrente
     const { data: row, error } = await supabase
       .from("states")
       .select("data")
@@ -50,7 +50,7 @@ export async function POST(req: Request) {
 
     if (!state.picks) state.picks = {};
 
-    // 2) DELETE (solo admin): elimina una schedina intera o un singolo match
+    // 2) DELETE (admin): elimina schedina intera o singolo match
     if (body.delete) {
       const email = String(body.email || "").trim();
       const week = Number(body.week);
@@ -74,13 +74,13 @@ export async function POST(req: Request) {
       if (typeof matchNumber === "number") {
         delete state.picks[email].weeks[week][matchNumber];
       } else {
-        delete state.picks[email].weeks[week]; // tutta la schedina della week
+        delete state.picks[email].weeks[week];
       }
 
-      // opzionale: rimuovi l'utente se non ha più weeks
-      if (state.picks[email] && Object.keys(state.picks[email].weeks || {}).length === 0) {
-        // delete state.picks[email];
-      }
+      // opzionale: se vuoto, potresti rimuovere l'utente
+      // if (state.picks[email] && Object.keys(state.picks[email].weeks || {}).length === 0) {
+      //   delete state.picks[email];
+      // }
 
       state.updatedAt = new Date().toISOString();
       const { error: upErr } = await supabase
@@ -156,7 +156,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    // 5) Se non è nessuno dei casi gestiti
+    // 5) Mancano campi richiesti
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "Bad request" }, { status: 400 });
