@@ -10,6 +10,13 @@ import {
 } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from "recharts";
 
+function fmtTimeRome(iso?: string){
+  if(!iso) return "";
+  const d = new Date(iso);
+  if(isNaN(d.getTime())) return "";
+  return new Intl.DateTimeFormat('it-IT',{ timeZone:'Europe/Rome', hour:'2-digit', minute:'2-digit' }).format(d);
+}
+
 /**
  * Fantatipster — Prediction League (single-file React app)
  * - Admin con password lato server (/api/auth)
