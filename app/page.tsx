@@ -435,31 +435,59 @@ export default function Fantatipster(){
   }
 
   function LoginCard(){
-    const [name,setName]=useState(user.name);
-    const [email,setEmail]=useState(user.email);
-    return (
-      <Card className="border-0 shadow-lg">
-        <CardHeader>
-          <CardTitle>Accedi per compilare la schedina</CardTitle>
-          <CardDescription>Usiamo l'email per associare le tue giocate e la classifica personale.</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div><Label>Nome</Label><Input value={name} onChange={(e)=>setName(e.target.value)} placeholder="Es. Ruben"/></div>
-            <div className="md:col-span-2"><Label>Email</Label><Input value={email} onChange={(e)=>setEmail(e.target.value)} placeholder="nome@email.com"/></div>
+  const [username,setUsername]=useState("");
+  const [password,setPassword]=useState("");
+
+  // Lista credenziali dal cloud: settings.players = { [username]: { password, name? } }
+  const players: Record<string,{password:string; name?:string}> = (settings as any)?.players || {};
+
+  return (
+    <Card className="border-0 shadow-lg">
+      <CardHeader>
+        <CardTitle>Accedi</CardTitle>
+        <CardDescription>Inserisci username e password assegnati dall'organizzatore.</CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <Label>Username</Label>
+            <Input
+              value={username}
+              onChange={(e)=>setUsername((e.target as HTMLInputElement).value.trim().toLowerCase())}
+              placeholder="es. ruben"
+            />
           </div>
-          <div className="flex justify-end">
-            <Btn onClick={()=>{
-              if(!email){ alert("Inserisci un'email valida"); return;}
-              setUser({name:name.trim(), email:email.trim().toLowerCase()});
-              ensureUserNode(email.trim().toLowerCase(), name.trim());
-              alert("Benvenuto!");
-            }}>Entra</Btn>
+          <div className="md:col-span-2">
+            <Label>Password</Label>
+            <Input
+              type="password"
+              value={password}
+              onChange={(e)=>setPassword((e.target as HTMLInputElement).value)}
+              placeholder="••••••"
+            />
           </div>
-        </CardContent>
-      </Card>
-    );
-  }
+        </div>
+        <div className="flex justify-end">
+          <Btn onClick={()=>{
+            if(!username || !password){
+              alert("Inserisci username e password"); return;
+            }
+            const rec = players[username];
+            if(!rec || rec.password !== password){
+              alert("Credenziali non valide"); return;
+            }
+            const displayName = rec.name || username;
+            // Usiamo lo username come "email" (chiave univoca per picks)
+            setUser({ name: displayName, email: username });
+            ensureUserNode(username, displayName);
+            alert(`Benvenuto ${displayName}!`);
+          }}>Entra</Btn>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 
   function WeekSelector(){
     return (
