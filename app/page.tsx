@@ -14,8 +14,8 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from "recha
  * Fantatipster — Prediction League (single-file React app)
  * - Admin con password lato server (/api/auth)
  * - Stato condiviso su cloud (/api/state, /api/pick)
- * - Non-admin: SOLO Schedina + Classifica + Schedine ricevute
- * - Admin: + Risultati, Settings, Tests
+ * - Non-admin: SOLO Schedina + Classifica
+ * - Admin: + Risultati, Settings, Dati, Tests
  * - Admin non persistito su localStorage e forzato off a ogni load
  */
 
@@ -84,7 +84,7 @@ function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
 function Label({ children, className = "", ...rest }: React.LabelHTMLAttributes<HTMLLabelElement>) {
   return <label {...rest} className={`block text-sm font-medium mb-1 ${className}`}>{children}</label>;
 }
-// Select tipizzato con onValueChange(string)
+// Select tipizzato
 type SelectBoxProps = {
   value: string;
   onValueChange: (v: string) => void;
@@ -211,6 +211,9 @@ export default function Fantatipster(){
 
   const [lastSync, setLastSync] = useState<string | null>(null);
 
+  // Modalità sicura via URL ?safe=1 per disabilitare fetch cloud (emergenza)
+  const SAFE_MODE = typeof window !== 'undefined' && new URLSearchParams(location.search).get('safe')==='1';
+
   // Persistenza locale (senza admin)
   useEffect(()=>{ saveState({ user, settings, teams, schedule, results, picks, week }); },
     [user, settings, teams, schedule, results, picks, week]);
@@ -218,24 +221,32 @@ export default function Fantatipster(){
   // Forza stato non-admin a ogni mount
   useEffect(() => { setAdminLogged(false); setAdminPw(""); }, []);
 
-  // Carica dallo stato cloud (si aggiorna quando cambia lastSync)
-  useEffect(()=>{ (async()=>{
-    try {
-      const r = await fetch('/api/state', { cache: 'no-store' });
-      if(!r.ok){ return; }
-      const data = await r.json();
-      if (Array.isArray(data.teams)) setTeams(data.teams);
-      if (data.settings) setSettings((s:any)=> ({...s, ...data.settings}));
-      if (Array.isArray(data.schedule) && data.schedule.length>0) setSchedule(data.schedule);
-      if (data.results) setResults(data.results);
-      if (data.picks) setPicks(data.picks);
-      if (data.updatedAt) setLastSync(data.updatedAt);
-      if (!data.schedule || data.schedule.length===0) {
-        const regen = toSchedule(data.teams || teams, (data.settings?.weeks)||settings.weeks);
-        setSchedule(regen);
-      }
-    } catch(e){ /* cloud non configurato o offline */ }
-  })(); }, [lastSync]);
+  // Carica dallo stato cloud (safe: una sola volta)
+  useEffect(()=>{ 
+    if (SAFE_MODE) return;
+    let cancelled=false; 
+    (async()=>{
+      try {
+        const r = await fetch('/api/state', { cache: 'no-store' });
+        if(!r.ok){ return; }
+        const data = await r.json();
+        if (cancelled || !data) return;
+
+        if (Array.isArray(data.teams) && data.teams.length>0) setTeams(data.teams);
+        if (data.settings) setSettings((s:any)=> ({...s, ...data.settings}));
+        if (Array.isArray(data.schedule) && data.schedule.length>0) setSchedule(data.schedule);
+        if (data.results && typeof data.results==='object') setResults(data.results);
+        if (data.picks && typeof data.picks==='object') setPicks(data.picks);
+        if (data.updatedAt) setLastSync(String(data.updatedAt));
+
+        if ((!data.schedule || data.schedule.length===0) && (data.teams?.length || teams.length)) {
+          const regen = toSchedule(data.teams?.length ? data.teams : teams, (data.settings?.weeks)||settings.weeks);
+          setSchedule(regen);
+        }
+      } catch(e) { /* ignora: non bloccare la UI */ }
+    })(); 
+    return ()=>{ cancelled=true; }; 
+  }, []); // dipendenze vuote: no loop
 
   const matchesThisWeek = useMemo(()=> schedule.filter(m=>m.week===week), [schedule, week]);
 
@@ -252,7 +263,7 @@ export default function Fantatipster(){
       const n={...prev};
       if(!n[email]) n[email]={name, weeks:{} as any};
       if(!n[email].weeks[wk]) n[email].weeks[wk]={};
-      n[email].weeks[wk][matchNumber]=value;
+      (n[email].weeks[wk] as any)[matchNumber]=value;
       return n;
     });
   }
@@ -383,6 +394,20 @@ export default function Fantatipster(){
             <Btn variant="ghost" size="sm" onClick={()=> setUser({name:"", email:""})}><LogOut className="w-4 h-4"/></Btn>
           </>
         )}
+        {/* SALVAGENTE: Reset locale */}
+        <Btn
+          variant="ghost"
+          size="sm"
+          onClick={()=>{
+            try{
+              localStorage.removeItem("fantatipster_state_v2");
+              alert("Stato locale cancellato. Ricarico la pagina.");
+              location.reload();
+            }catch{}
+          }}
+        >
+          Reset locale
+        </Btn>
       </div>
     </div>
   ); }
@@ -434,60 +459,64 @@ export default function Fantatipster(){
     );
   }
 
+  // Login con username+password (case-insensitive) — usa username come chiave "email"
   function LoginCard(){
-  const [username,setUsername]=useState("");
-  const [password,setPassword]=useState("");
+    const [username,setUsername]=useState("");
+    const [password,setPassword]=useState("");
 
-  // Lista credenziali dal cloud: settings.players = { [username]: { password, name? } }
-  const players: Record<string,{password:string; name?:string}> = (settings as any)?.players || {};
+    const players: Record<string,{password?:string; name?:string}> =
+      ((settings as any)?.players ?? {}) as any;
 
-  return (
-    <Card className="border-0 shadow-lg">
-      <CardHeader>
-        <CardTitle>Accedi</CardTitle>
-        <CardDescription>Inserisci username e password assegnati dall'organizzatore.</CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <Label>Username</Label>
-            <Input
-              value={username}
-              onChange={(e)=>setUsername((e.target as HTMLInputElement).value.trim().toLowerCase())}
-              placeholder="es. ruben"
-            />
+    return (
+      <Card className="border-0 shadow-lg">
+        <CardHeader>
+          <CardTitle>Accedi</CardTitle>
+          <CardDescription>Inserisci username e password assegnati dall'organizzatore.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <Label>Username</Label>
+              <Input
+                value={username}
+                onChange={(e)=>setUsername((e.target as HTMLInputElement).value)}
+                placeholder="es. off"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <Label>Password</Label>
+              <Input
+                type="password"
+                value={password}
+                onChange={(e)=>setPassword((e.target as HTMLInputElement).value)}
+                placeholder="••••••"
+              />
+            </div>
           </div>
-          <div className="md:col-span-2">
-            <Label>Password</Label>
-            <Input
-              type="password"
-              value={password}
-              onChange={(e)=>setPassword((e.target as HTMLInputElement).value)}
-              placeholder="••••••"
-            />
-          </div>
-        </div>
-        <div className="flex justify-end">
-          <Btn onClick={()=>{
-            if(!username || !password){
-              alert("Inserisci username e password"); return;
-            }
-            const rec = players[username];
-            if(!rec || rec.password !== password){
-              alert("Credenziali non valide"); return;
-            }
-            const displayName = rec.name || username;
-            // Usiamo lo username come "email" (chiave univoca per picks)
-            setUser({ name: displayName, email: username });
-            ensureUserNode(username, displayName);
-            alert(`Benvenuto ${displayName}!`);
-          }}>Entra</Btn>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
+          <div className="flex justify-end">
+            <Btn onClick={()=>{
+              const u = (username||"").trim().toLowerCase();
+              const p = (password||"").trim().toLowerCase();
 
+              if(!u || !p){ alert("Inserisci username e password"); return; }
+
+              const rec = players[u];
+              const expected = (rec?.password || "").toLowerCase();
+
+              if(!rec || expected !== p){
+                alert("Credenziali non valide"); return;
+              }
+
+              const displayName = rec.name || u;
+              setUser({ name: displayName, email: u });
+              ensureUserNode(u, displayName);
+              alert(`Benvenuto ${displayName}!`);
+            }}>Entra</Btn>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   function WeekSelector(){
     return (
@@ -531,42 +560,31 @@ export default function Fantatipster(){
                       <Badge variant="outline">in attesa</Badge>
                     )}
                   </CardTitle>
-                  <CardDescription>
-                    Match {m.matchNumber} · Week {m.week}
-                  </CardDescription>
+                  <CardDescription>Match {m.matchNumber} · Week {m.week}</CardDescription>
                 </CardHeader>
                 <CardContent className="flex items-center justify-between gap-3 flex-wrap">
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setPick(user.email, user.name, week, m.matchNumber, "1")}
-                      className={
-                        "px-3 py-1 rounded border text-sm " +
-                        (myPick === "1"
-                          ? "bg-[rgb(34,197,94)] text-white border-[rgb(34,197,94)]"
-                          : "bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700 hover:opacity-90")
-                      }
+                      className={"px-3 py-1 rounded border text-sm " + (myPick==="1"
+                        ? "bg-[rgb(34,197,94)] text-white border-[rgb(34,197,94)]"
+                        : "bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700 hover:opacity-90")}
                     >1</button>
 
                     {settings.allowDraw && (
                       <button
                         onClick={() => setPick(user.email, user.name, week, m.matchNumber, "X")}
-                        className={
-                          "px-3 py-1 rounded border text-sm " +
-                          (myPick === "X"
-                            ? "bg-[rgb(34,197,94)] text-white border-[rgb(34,197,94)]"
-                            : "bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700 hover:opacity-90")
-                        }
+                        className={"px-3 py-1 rounded border text-sm " + (myPick==="X"
+                          ? "bg-[rgb(34,197,94)] text-white border-[rgb(34,197,94)]"
+                          : "bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700 hover:opacity-90")}
                       >X</button>
                     )}
 
                     <button
                       onClick={() => setPick(user.email, user.name, week, m.matchNumber, "2")}
-                      className={
-                        "px-3 py-1 rounded border text-sm " +
-                        (myPick === "2"
-                          ? "bg-[rgb(34,197,94)] text-white border-[rgb(34,197,94)]"
-                          : "bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700 hover:opacity-90")
-                      }
+                      className={"px-3 py-1 rounded border text-sm " + (myPick==="2"
+                        ? "bg-[rgb(34,197,94)] text-white border-[rgb(34,197,94)]"
+                        : "bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700 hover:opacity-90")}
                     >2</button>
                   </div>
                 </CardContent>
@@ -591,6 +609,7 @@ export default function Fantatipster(){
               try {
                 // invia tutte le partite selezionate
                 for (const [mn, val] of entries) {
+                  if (mn==="_submittedAt") continue;
                   await fetch("/api/pick", {
                     method:"POST",
                     headers:{ "Content-Type":"application/json" },
@@ -619,7 +638,7 @@ export default function Fantatipster(){
                 });
 
                 alert("Schedina inviata ✅");
-                setLastSync(submittedAt); // trigger refetch /api/state
+                setLastSync(submittedAt); // trigger eventuale ref
               } catch {
                 alert("Errore nell'invio ❌");
               }
@@ -819,9 +838,7 @@ export default function Fantatipster(){
     );
   }
 
-  // >>>>>>>>>> NUOVA DATA TAB (visibile a tutti) <<<<<<<<<<
   function DataTab(){
-    // Import/Export visibili solo all'admin
     function handleExport(){
       const blob=new Blob([JSON.stringify({user, settings, teams, schedule, results, picks}, null, 2)], {type:'application/json'});
       const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='fantatipster_data.json'; a.click(); URL.revokeObjectURL(url);
@@ -840,6 +857,7 @@ export default function Fantatipster(){
       }catch{ alert("File non valido"); }
     }
 
+    // Helper: formatta riga “Week N: HOME vs AWAY <PICK> - ... • Inviata: <ora>”
     function renderWeekLine(email: string, info: any, wk: number){
       const weekMap = info.weeks?.[wk] || {};
       const submittedAt: string | undefined = weekMap._submittedAt;
@@ -880,6 +898,7 @@ export default function Fantatipster(){
           )}
         </div>
 
+        {/* Elenco visibile a tutti */}
         <div className="space-y-3">
           {Object.entries(picks || {}).length === 0 && (
             <div className="text-sm text-zinc-500">Nessuna schedina ancora inviata.</div>
@@ -894,41 +913,40 @@ export default function Fantatipster(){
                 <CardDescription>Riepilogo scelte</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
-  {renderWeekLine(email, info, week)}
+                {renderWeekLine(email, info, week)}
 
-  {adminLogged && (
-    <div className="pt-2">
-      <Btn
-        variant="destructive"
-        size="sm"
-        onClick={async ()=>{
-          if(!confirm(`Eliminare la schedina di ${info?.name||email} per la Week ${week}?`)) return;
-          try{
-            const r = await fetch("/api/pick", {
-              method:"POST",
-              headers:{ "Content-Type":"application/json" },
-              body: JSON.stringify({
-                delete: true,
-                email,
-                week,
-                adminPassword: adminPw
-              })
-            });
-            const j = await r.json();
-            if(!r.ok){ throw new Error(j.error || "Errore eliminazione"); }
-            alert("Schedina eliminata");
-            setLastSync(new Date().toISOString());
-          }catch(e:any){
-            alert(e?.message || "Errore eliminazione");
-          }
-        }}
-      >
-        Elimina schedina (week {week})
-      </Btn>
-    </div>
-  )}
-</CardContent>
-
+                {adminLogged && (
+                  <div className="pt-2">
+                    <Btn
+                      variant="destructive"
+                      size="sm"
+                      onClick={async ()=>{
+                        if(!confirm(`Eliminare la schedina di ${info?.name||email} per la Week ${week}?`)) return;
+                        try{
+                          const r = await fetch("/api/pick", {
+                            method:"POST",
+                            headers:{ "Content-Type":"application/json" },
+                            body: JSON.stringify({
+                              delete: true,
+                              email,
+                              week,
+                              adminPassword: adminPw
+                            })
+                          });
+                          const j = await r.json();
+                          if(!r.ok){ throw new Error(j.error || "Errore eliminazione"); }
+                          alert("Schedina eliminata");
+                          setLastSync(new Date().toISOString());
+                        }catch(e:any){
+                          alert(e?.message || "Errore eliminazione");
+                        }
+                      }}
+                    >
+                      Elimina schedina (week {week})
+                    </Btn>
+                  </div>
+                )}
+              </CardContent>
             </Card>
           ))}
         </div>
@@ -969,7 +987,7 @@ export default function Fantatipster(){
     );
   }
 
-  // Tabs: NON-ADMIN → Schedina + Classifica + Schedine ricevute. ADMIN → + Risultati, Settings, Tests
+  // Tabs: NON-ADMIN → solo Schedina + Classifica. ADMIN → + Risultati, Settings, Dati, Tests
   const baseTabs = [
     { value: "pred", label: "Schedina", content: <PredictionsTab/> },
     { value: "lead", label: "Classifica", content: <LeaderboardTab/> },
@@ -987,7 +1005,8 @@ export default function Fantatipster(){
   // Se cambia adminLogged, assicura che la tab corrente sia valida
   useEffect(()=>{
     if(!tabs.find(t=>t.value===tab)) setTab(tabs[0].value);
-  }, [adminLogged]); // eslint-disable-line
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adminLogged]);
 
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto">
