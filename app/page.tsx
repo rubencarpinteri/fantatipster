@@ -1,5 +1,6 @@
 "use client";
 
+import Tests from "./components/Tests";
 import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
