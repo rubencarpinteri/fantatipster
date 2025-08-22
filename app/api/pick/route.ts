@@ -50,7 +50,7 @@ export async function POST(req: Request) {
 
     if (!state.picks) state.picks = {};
 
-    // 2) DELETE (solo admin): elimina una schedina intera di una week o solo un match
+    // 2) DELETE (solo admin): elimina una schedina intera o un singolo match
     if (body.delete) {
       const email = String(body.email || "").trim();
       const week = Number(body.week);
@@ -68,21 +68,17 @@ export async function POST(req: Request) {
       }
 
       if (!state.picks[email] || !state.picks[email].weeks || !state.picks[email].weeks[week]) {
-        // niente da cancellare → ok idempotente
-        return NextResponse.json({ ok: true });
+        return NextResponse.json({ ok: true }); // idempotente
       }
 
       if (typeof matchNumber === "number") {
-        // cancella SOLO un match
         delete state.picks[email].weeks[week][matchNumber];
       } else {
-        // cancella TUTTA la schedina della week (compreso timestamp)
-        delete state.picks[email].weeks[week];
+        delete state.picks[email].weeks[week]; // tutta la schedina della week
       }
 
-      // se l'utente non ha più weeks, puoi opzionalmente rimuoverlo
+      // opzionale: rimuovi l'utente se non ha più weeks
       if (state.picks[email] && Object.keys(state.picks[email].weeks || {}).length === 0) {
-        // commenta questa riga se vuoi mantenerlo comunque:
         // delete state.picks[email];
       }
 
@@ -112,6 +108,15 @@ export async function POST(req: Request) {
       if (!state.picks[email].weeks[week]) state.picks[email].weeks[week] = {};
 
       state.picks[email].weeks[week]._submittedAt = submittedAt;
+
+      state.updatedAt = new Date().toISOString();
+      const { error: upErr } = await supabase
+        .from("states")
+        .upsert({ league: LEAGUE, data: state })
+        .eq("league", LEAGUE);
+
+      if (upErr) return NextResponse.json({ error: "DB write error" }, { status: 500 });
+      return NextResponse.json({ ok: true });
     }
 
     // 4) PICK singolo
@@ -140,7 +145,20 @@ export async function POST(req: Request) {
       if (!state.picks[email].weeks) state.picks[email].weeks = {};
       if (!state.picks[email].weeks[week]) state.picks[email].weeks[week] = {};
       state.picks[email].weeks[week][matchNumber] = pick;
+
+      state.updatedAt = new Date().toISOString();
+      const { error: upErr } = await supabase
+        .from("states")
+        .upsert({ league: LEAGUE, data: state })
+        .eq("league", LEAGUE);
+
+      if (upErr) return NextResponse.json({ error: "DB write error" }, { status: 500 });
+      return NextResponse.json({ ok: true });
     }
 
-    // Se non è né submit né pick valido → 400
-    if
+    // 5) Se non è nessuno dei casi gestiti
+    return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message || "Bad request" }, { status: 400 });
+  }
+}
