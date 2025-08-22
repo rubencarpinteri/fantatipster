@@ -651,22 +651,21 @@ export default function Fantatipster(){
                   });
                 }
 
-                // marca la settimana come inviata con timestamp
-                const submittedAt = new Date().toISOString();
-                await fetch("/api/pick", {
-                  method:"POST",
-                  headers:{ "Content-Type":"application/json" },
-                  body: JSON.stringify({
-                    email: user.email,
-                    name: user.name,
-                    week,
-                    submit: true,
-                    submittedAt
-                  })
-                });
+                // marca la settimana come inviata; il server inserisce il timestamp
+await fetch("/api/pick", {
+  method:"POST",
+  headers:{ "Content-Type":"application/json" },
+  body: JSON.stringify({
+    email: user.email,
+    name: user.name,
+    week,
+    submit: true
+  })
+});
 
-                alert("Schedina inviata ✅");
-                setLastSync(submittedAt); // trigger eventuale ref
+alert("Schedina inviata ✅");
+setLastSync(new Date().toISOString()); // trigger refresh
+ // trigger eventuale ref
               } catch {
                 alert("Errore nell'invio ❌");
               }
