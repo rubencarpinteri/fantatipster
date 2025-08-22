@@ -516,7 +516,7 @@ export default function Fantatipster(){
         className={
           "px-3 py-1 rounded border text-sm " +
           (myPick === "1"
-            ? "bg-[rgb(240,61,60)] text-white border-[rgb(240,61,60)]"
+            ? "bg-[rgb(34,197,94)] text-white border-[rgb(34,197,94)]"
             : "bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700 hover:opacity-90")
         }
       >
@@ -531,7 +531,7 @@ export default function Fantatipster(){
           className={
             "px-3 py-1 rounded border text-sm " +
             (myPick === "X"
-              ? "bg-[rgb(240,61,60)] text-white border-[rgb(240,61,60)]"
+              ? "bg-[rgb(34,197,94)] text-white border-[rgb(34,197,94)]"
               : "bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700 hover:opacity-90")
           }
         >
@@ -546,7 +546,7 @@ export default function Fantatipster(){
         className={
           "px-3 py-1 rounded border text-sm " +
           (myPick === "2"
-            ? "bg-[rgb(240,61,60)] text-white border-[rgb(240,61,60)]"
+            ? "bg-[rgb(34,197,94)] text-white border-[rgb(34,197,94)]"
             : "bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700 hover:opacity-90")
         }
       >
