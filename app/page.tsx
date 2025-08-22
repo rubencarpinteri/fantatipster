@@ -886,31 +886,36 @@ export default function Fantatipster(){
       }catch{ alert("File non valido"); }
     }
 
-    // Helper: formatta riga “Week N: HOME vs AWAY <PICK> - ... • Inviata: <ora>”
-    function renderWeekLine(email: string, info: any, wk: number){
-      const weekMap = info.weeks?.[wk] || {};
-      const submittedAt: string | undefined = weekMap._submittedAt;
+    // Helper: formatta riga “Week N: HOME vs AWAY <PICK> - ... • Inviata: <data/ora>”
+function renderWeekLine(email: string, info: any, wk: number){
+  const weekMap = info.weeks?.[wk] || {};
+  const submittedAt: string | undefined = weekMap._submittedAt;
 
-      const matches = schedule
-        .filter((m:any) => m.week === wk)
-        .sort((a:any,b:any) => a.matchNumber - b.matchNumber)
-        .map((m:any) => {
-          const pick = weekMap?.[m.matchNumber] as '1'|'X'|'2'|undefined;
-          const pickOut = pick ?? '-';
-          return `${m.home} vs ${m.away} ${pickOut}`;
-        });
+  const matches = schedule
+    .filter((m:any) => m.week === wk)
+    .sort((a:any,b:any) => a.matchNumber - b.matchNumber)
+    .map((m:any) => {
+      const pick = weekMap?.[m.matchNumber] as '1'|'X'|'2'|undefined;
+      const pickOut = pick ?? '-';
+      return `${m.home} vs ${m.away} ${pickOut}`;
+    });
 
-      const lineLeft = `Week ${wk}: ${matches.join(" - ")}`;
-      const timePart = submittedAt
-        ? `Inviata: ${new Date(submittedAt).toLocaleString()}`
-        : `Non ancora inviata`;
+  const lineLeft = `Week ${wk}: ${matches.join(" - ")}`;
+  const timePart = submittedAt
+    ? `Inviata: ${new Intl.DateTimeFormat('it-IT',{
+        timeZone:'Europe/Rome',
+        day:'2-digit', month:'2-digit', year:'2-digit',
+        hour:'2-digit', minute:'2-digit'
+      }).format(new Date(submittedAt))}`
+    : `Non ancora inviata`;
 
-      return (
-        <div className="text-sm">
-          {lineLeft} <span className="text-xs text-zinc-500">• {timePart}</span>
-        </div>
-      );
-    }
+  return (
+    <div className="text-sm">
+      {lineLeft} <span className="text-xs text-zinc-500">• {timePart}</span>
+    </div>
+  );
+}
+
 
     return (
       <div className="grid gap-4">
