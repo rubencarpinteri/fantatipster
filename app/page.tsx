@@ -805,7 +805,7 @@ export default function Fantatipster(){
   ] as const;
   const tabs = adminLogged ? [...baseTabs, ...adminOnly] : [...baseTabs];
 
-  const [tab, setTab] = useState(tabs[0].value);
+  const [tab, setTab] = useState<string>('pred');
 
   // Se cambia adminLogged, assicura che la tab corrente sia valida
   useEffect(()=>{
@@ -827,7 +827,7 @@ export default function Fantatipster(){
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs value={tab} onValueChange={setTab} tabs={tabs as any}/>
+          <Tabs value={tab} onValueChange={(v) => setTab(v)} tabs={tabs as any}/>
         </CardContent>
       </Card>
 
