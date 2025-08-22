@@ -413,110 +413,131 @@ export default function Fantatipster(){
   ); }
 
   function AdminModal(){
-    return (
-      <Modal
-        open={adminModalOpen}
-        onClose={()=> setAdminModalOpen(false)}
-        title="Login Admin"
-        description="Inserisci la password admin (configurata su Vercel come ADMIN_PASSWORD)"
-      >
-        <div className="grid gap-3">
-          <Input
-            type="password"
-            value={adminInput}
-            onChange={(e)=> setAdminInput((e.target as HTMLInputElement).value)}
-            placeholder="Password admin"
-            autoFocus
-          />
-        </div>
-        <div className="mt-4 flex justify-end gap-2">
-          <Btn variant="ghost" onClick={()=> setAdminModalOpen(false)}>Annulla</Btn>
-          <Btn
-            onClick={async ()=>{
-              try{
-                const r = await fetch("/api/auth", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ password: adminInput })
-                });
-                if (!r.ok) {
-                  const e = await r.json().catch(()=>({error:"Errore login"}));
-                  throw new Error(e.error || "Password errata");
-                }
-                setAdminPw(adminInput);
-                setAdminLogged(true);
-                setAdminModalOpen(false);
-                alert("Admin attivo");
-              }catch(e:any){
-                alert(e.message || "Password errata");
-              }
-            }}
-          >
-            Entra
-          </Btn>
-        </div>
-      </Modal>
-    );
-  }
+  const handleAdminLogin = async () => {
+    try{
+      const r = await fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: adminInput })
+      });
+      if (!r.ok) {
+        const e = await r.json().catch(()=>({error:"Errore login"}));
+        throw new Error(e.error || "Password errata");
+      }
+      setAdminPw(adminInput);
+      setAdminLogged(true);
+      setAdminModalOpen(false);
+      alert("Admin attivo");
+    }catch(e:any){
+      alert(e.message || "Password errata");
+    }
+  };
+
+  const onEnter = (e:any) => {
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      handleAdminLogin();
+    }
+  };
+
+  return (
+    <Modal
+      open={adminModalOpen}
+      onClose={()=> setAdminModalOpen(false)}
+      title="Login Admin"
+      description="Inserisci la password admin (configurata su Vercel come ADMIN_PASSWORD)"
+    >
+      <div className="grid gap-3">
+        <Input
+          type="password"
+          value={adminInput}
+          onChange={(e)=> setAdminInput((e.target as HTMLInputElement).value)}
+          onKeyDown={onEnter}
+          placeholder="Password admin"
+          autoFocus
+        />
+      </div>
+      <div className="mt-4 flex justify-end gap-2">
+        <Btn variant="ghost" onClick={()=> setAdminModalOpen(false)}>Annulla</Btn>
+        <Btn onClick={handleAdminLogin}>Entra</Btn>
+      </div>
+    </Modal>
+  );
+}
+
 
   // Login con username+password (case-insensitive) — usa username come chiave "email"
   function LoginCard(){
-    const [username,setUsername]=useState("");
-    const [password,setPassword]=useState("");
+  const [username,setUsername]=useState("");
+  const [password,setPassword]=useState("");
 
-    const players: Record<string,{password?:string; name?:string}> =
-      ((settings as any)?.players ?? {}) as any;
+  const players: Record<string,{password?:string; name?:string}> =
+    ((settings as any)?.players ?? {}) as any;
 
-    return (
-      <Card className="border-0 shadow-lg">
-        <CardHeader>
-          <CardTitle>Accedi</CardTitle>
-          <CardDescription>Inserisci username e password assegnati dall'organizzatore.</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <Label>Username</Label>
-              <Input
-                value={username}
-                onChange={(e)=>setUsername((e.target as HTMLInputElement).value)}
-                placeholder="es. off"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <Label>Password</Label>
-              <Input
-                type="password"
-                value={password}
-                onChange={(e)=>setPassword((e.target as HTMLInputElement).value)}
-                placeholder="••••••"
-              />
-            </div>
+  const doLogin = () => {
+    const u = (username||"").trim().toLowerCase();
+    const p = (password||"").trim().toLowerCase();
+
+    if(!u || !p){ alert("Inserisci username e password"); return; }
+
+    const rec = players[u];
+    const expected = (rec?.password || "").toLowerCase();
+
+    if(!rec || expected !== p){
+      alert("Credenziali non valide"); return;
+    }
+
+    const displayName = rec.name || u;
+    setUser({ name: displayName, email: u });
+    ensureUserNode(u, displayName);
+    alert(`Benvenuto ${displayName}!`);
+  };
+
+  const onEnter = (e:any) => {
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      doLogin();
+    }
+  };
+
+  return (
+    <Card className="border-0 shadow-lg">
+      <CardHeader>
+        <CardTitle>Accedi</CardTitle>
+        <CardDescription>Inserisci username e password assegnati dall'organizzatore.</CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <Label>Username</Label>
+            <Input
+              value={username}
+              onChange={(e)=>setUsername((e.target as HTMLInputElement).value)}
+              onKeyDown={onEnter}
+              autoComplete="username"
+              placeholder="es. off"
+            />
           </div>
-          <div className="flex justify-end">
-            <Btn onClick={()=>{
-              const u = (username||"").trim().toLowerCase();
-              const p = (password||"").trim().toLowerCase();
-
-              if(!u || !p){ alert("Inserisci username e password"); return; }
-
-              const rec = players[u];
-              const expected = (rec?.password || "").toLowerCase();
-
-              if(!rec || expected !== p){
-                alert("Credenziali non valide"); return;
-              }
-
-              const displayName = rec.name || u;
-              setUser({ name: displayName, email: u });
-              ensureUserNode(u, displayName);
-              alert(`Benvenuto ${displayName}!`);
-            }}>Entra</Btn>
+          <div className="md:col-span-2">
+            <Label>Password</Label>
+            <Input
+              type="password"
+              value={password}
+              onChange={(e)=>setPassword((e.target as HTMLInputElement).value)}
+              onKeyDown={onEnter}
+              autoComplete="current-password"
+              placeholder="••••••"
+            />
           </div>
-        </CardContent>
-      </Card>
-    );
-  }
+        </div>
+        <div className="flex justify-end">
+          <Btn onClick={doLogin}>Entra</Btn>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 
   function WeekSelector(){
     return (
