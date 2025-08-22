@@ -8,6 +8,7 @@ const SERVICE_ROLE =
   process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_ROLE;
 
 const LEAGUE = process.env.LEAGUE_ID || "default";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 
 function getAdminClient(): SupabaseClient | null {
   if (!SUPABASE_URL || !SERVICE_ROLE) return null;
@@ -26,7 +27,7 @@ export async function POST(req: Request) {
 
     const body = await req.json();
 
-    // 1) Carica lo stato corrente (o crea un seed minimo se assente)
+    // 1) Carica stato corrente
     const { data: row, error } = await supabase
       .from("states")
       .select("data")
@@ -49,7 +50,53 @@ export async function POST(req: Request) {
 
     if (!state.picks) state.picks = {};
 
-    // 2) Se è un INVIO FINALE, salva anche il timestamp _submittedAt
+    // 2) DELETE (solo admin): elimina una schedina intera di una week o solo un match
+    if (body.delete) {
+      const email = String(body.email || "").trim();
+      const week = Number(body.week);
+      const matchNumber = body.matchNumber != null ? Number(body.matchNumber) : undefined;
+      const adminPassword = String(body.adminPassword || "");
+
+      if (!ADMIN_PASSWORD) {
+        return NextResponse.json({ error: "ADMIN_PASSWORD not set" }, { status: 500 });
+      }
+      if (adminPassword !== ADMIN_PASSWORD) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      if (!email || !week) {
+        return NextResponse.json({ error: "Missing email/week for delete" }, { status: 400 });
+      }
+
+      if (!state.picks[email] || !state.picks[email].weeks || !state.picks[email].weeks[week]) {
+        // niente da cancellare → ok idempotente
+        return NextResponse.json({ ok: true });
+      }
+
+      if (typeof matchNumber === "number") {
+        // cancella SOLO un match
+        delete state.picks[email].weeks[week][matchNumber];
+      } else {
+        // cancella TUTTA la schedina della week (compreso timestamp)
+        delete state.picks[email].weeks[week];
+      }
+
+      // se l'utente non ha più weeks, puoi opzionalmente rimuoverlo
+      if (state.picks[email] && Object.keys(state.picks[email].weeks || {}).length === 0) {
+        // commenta questa riga se vuoi mantenerlo comunque:
+        // delete state.picks[email];
+      }
+
+      state.updatedAt = new Date().toISOString();
+      const { error: upErr } = await supabase
+        .from("states")
+        .upsert({ league: LEAGUE, data: state })
+        .eq("league", LEAGUE);
+
+      if (upErr) return NextResponse.json({ error: "DB write error" }, { status: 500 });
+      return NextResponse.json({ ok: true });
+    }
+
+    // 3) INVIO FINALE: salva timestamp _submittedAt
     if (body.submit) {
       const email = String(body.email || "").trim();
       const name = String(body.name || "").trim();
@@ -67,7 +114,7 @@ export async function POST(req: Request) {
       state.picks[email].weeks[week]._submittedAt = submittedAt;
     }
 
-    // 3) Se è un PICK singolo, aggiorna la scelta
+    // 4) PICK singolo
     const {
       email,
       name,
@@ -96,24 +143,4 @@ export async function POST(req: Request) {
     }
 
     // Se non è né submit né pick valido → 400
-    if (!body.submit && !(email && name && typeof week === "number" && typeof matchNumber === "number" && pick)) {
-      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
-    }
-
-    state.updatedAt = new Date().toISOString();
-
-    // 4) Upsert
-    const { error: upErr } = await supabase
-      .from("states")
-      .upsert({ league: LEAGUE, data: state })
-      .eq("league", LEAGUE);
-
-    if (upErr) {
-      return NextResponse.json({ error: "DB write error" }, { status: 500 });
-    }
-
-    return NextResponse.json({ ok: true });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Bad request" }, { status: 400 });
-  }
-}
+    if
