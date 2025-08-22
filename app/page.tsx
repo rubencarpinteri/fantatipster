@@ -247,22 +247,15 @@ export default function Fantatipster(){
       return next;
     });
   }
-  async function setPick(email:string, name:string, wk:number, matchNumber:number, value:'1'|'X'|'2'){
-    setPicks(prev=>{
-      const n={...prev};
-      if(!n[email]) n[email]={name, weeks:{}};
-      if(!n[email].weeks[wk]) n[email].weeks[wk]={};
-      n[email].weeks[wk][matchNumber]=value;
-      return n;
-    });
-    try {
-      await fetch('/api/pick', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ email, name, week:wk, matchNumber, pick:value })
-      });
-      setLastSync(new Date().toISOString());
-    } catch {}
-  }
+  function setPick(email:string, name:string, wk:number, matchNumber:number, value:'1'|'X'|'2'){
+  setPicks(prev=>{
+    const n={...prev};
+    if(!n[email]) n[email]={name, weeks:{} as any};
+    if(!n[email].weeks[wk]) n[email].weeks[wk]={};
+    n[email].weeks[wk][matchNumber]=value;
+    return n;
+  });
+}
   function setResultLocal(wk:number, matchNumber:number, hg:any, ag:any){
     setResults(prev=>({ ...prev, [`${wk}_${matchNumber}`]: { hg, ag } }));
   }
@@ -499,31 +492,69 @@ export default function Fantatipster(){
             const correct= done && myPick && myPick===sign;
             return (
               <Card key={key} className="shadow-sm">
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center justify-between">
-                    <span>{m.home} <span className="text-zinc-500">vs</span> {m.away}</span>
-                    {done? (
-                      <Badge variant={correct? 'default':'secondary'} className="gap-1"><CheckCircle2 className="w-4 h-4"/> {sign}</Badge>
-                    ) : (
-                      <Badge variant="outline">in attesa</Badge>
-                    )}
-                  </CardTitle>
-                  <CardDescription>Match {m.matchNumber} · Week {m.week}</CardDescription>
-                </CardHeader>
-                <CardContent className="flex items-center justify-between gap-3 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <Btn variant={myPick==='1'? 'primary':'secondary'} onClick={()=> setPick(user.email, user.name, week, m.matchNumber, '1')}>1</Btn>
-                    {settings.allowDraw && <Btn variant={myPick==='X'? 'primary':'secondary'} onClick={()=> setPick(user.email, user.name, week, m.matchNumber, 'X')}>X</Btn>}
-                    <Btn variant={myPick==='2'? 'primary':'secondary'} onClick={()=> setPick(user.email, user.name, week, m.matchNumber, '2')}>2</Btn>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      </div>
-    );
-  }
+  <CardHeader className="pb-2">
+    <CardTitle className="flex items-center justify-between">
+      <span>{m.home} <span className="text-zinc-500">vs</span> {m.away}</span>
+      {done ? (
+        <Badge variant={correct ? 'default' : 'secondary'} className="gap-1">
+          <CheckCircle2 className="w-4 h-4" /> {sign}
+        </Badge>
+      ) : (
+        <Badge variant="outline">in attesa</Badge>
+      )}
+    </CardTitle>
+    <CardDescription>
+      Match {m.matchNumber} · Week {m.week}
+    </CardDescription>
+  </CardHeader>
+  <CardContent className="flex items-center justify-between gap-3 flex-wrap">
+    <div className="flex items-center gap-2">
+      <button
+        onClick={() =>
+          setPick(user.email, user.name, week, m.matchNumber, "1")
+        }
+        className={
+          "px-3 py-1 rounded border text-sm " +
+          (myPick === "1"
+            ? "bg-[rgb(240,61,60)] text-white border-[rgb(240,61,60)]"
+            : "bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700 hover:opacity-90")
+        }
+      >
+        1
+      </button>
+
+      {settings.allowDraw && (
+        <button
+          onClick={() =>
+            setPick(user.email, user.name, week, m.matchNumber, "X")
+          }
+          className={
+            "px-3 py-1 rounded border text-sm " +
+            (myPick === "X"
+              ? "bg-[rgb(240,61,60)] text-white border-[rgb(240,61,60)]"
+              : "bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700 hover:opacity-90")
+          }
+        >
+          X
+        </button>
+      )}
+
+      <button
+        onClick={() =>
+          setPick(user.email, user.name, week, m.matchNumber, "2")
+        }
+        className={
+          "px-3 py-1 rounded border text-sm " +
+          (myPick === "2"
+            ? "bg-[rgb(240,61,60)] text-white border-[rgb(240,61,60)]"
+            : "bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700 hover:opacity-90")
+        }
+      >
+        2
+      </button>
+    </div>
+  </CardContent>
+</Card>
 
   function ResultsTab(){
     if(!adminLogged) return (
