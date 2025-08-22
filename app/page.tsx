@@ -804,10 +804,90 @@ export default function Fantatipster(){
   }
 
   function DataTab(){
-    function handleExport(){
-      const blob=new Blob([JSON.stringify({user, settings, teams, schedule, results, picks}, null, 2)], {type:'application/json'});
-      const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='fantatipster_data.json'; a.click(); URL.revokeObjectURL(url);
-    }
+  // Import/Export restano visibili solo se adminLogged (come da tua richiesta)
+  function handleExport(){
+    const blob=new Blob([JSON.stringify({user, settings, teams, schedule, results, picks}, null, 2)], {type:'application/json'});
+    const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='fantatipster_data.json'; a.click(); URL.revokeObjectURL(url);
+  }
+  async function handleImport(e: React.ChangeEvent<HTMLInputElement>){
+    const file = e.target.files?.[0]; if(!file) return;
+    const txt = await file.text();
+    try{
+      const j = JSON.parse(txt);
+      if (Array.isArray(j.teams)) setTeams(j.teams);
+      if (j.settings) setSettings((s:any)=> ({...s, ...j.settings}));
+      if (Array.isArray(j.schedule)) setSchedule(j.schedule);
+      if (j.results) setResults(j.results);
+      if (j.picks) setPicks(j.picks);
+      alert("Import OK (locale). Per salvare su cloud: tab Settings → Salva su cloud.");
+    }catch{ alert("File non valido"); }
+  }
+
+  // Helper: formatta riga “Week N: <HOME vs AWAY PICK - ...>  •  Inviata: <ora>”
+  function renderWeekLine(email: string, info: any, wk: number){
+    const weekMap = info.weeks?.[wk] || {};
+    const submittedAt: string | undefined = weekMap._submittedAt;
+
+    const matches = schedule
+      .filter((m:any) => m.week === wk)
+      .sort((a:any,b:any) => a.matchNumber - b.matchNumber)
+      .map((m:any) => {
+        const pick = weekMap?.[m.matchNumber] as '1'|'X'|'2'|undefined;
+        const pickOut = pick ?? '-';
+        return `${m.home} vs ${m.away} ${pickOut}`;
+      });
+
+    const lineLeft = `Week ${wk}: ${matches.join(" - ")}`;
+    const timePart = submittedAt
+      ? `Inviata: ${new Date(submittedAt).toLocaleString()}`
+      : `Non ancora inviata`;
+
+    return (
+      <div className="text-sm">
+        {lineLeft} <span className="text-xs text-zinc-500">• {timePart}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-4">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <h3 className="text-lg font-semibold">Schedine ricevute</h3>
+        {adminLogged && (
+          <div className="flex items-center gap-2">
+            <label className="text-sm px-3 py-1 border rounded cursor-pointer">
+              Importa JSON
+              <input type="file" accept="application/json" onChange={handleImport} className="hidden"/>
+            </label>
+            <Btn onClick={handleExport}>Esporta JSON</Btn>
+          </div>
+        )}
+      </div>
+
+      {/* Mostra le schedine per l'utente corrente week */}
+      <div className="space-y-3">
+        {Object.entries(picks || {}).length === 0 && (
+          <div className="text-sm text-zinc-500">Nessuna schedina ancora inviata.</div>
+        )}
+
+        {Object.entries(picks || {}).map(([email, info]: [string, any]) => (
+          <Card key={email} className="shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">
+                {info?.name || email} <span className="text-zinc-500">({email})</span>
+              </CardTitle>
+              <CardDescription>Riepilogo scelte</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {renderWeekLine(email, info, week)}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
     function handleImport(e: React.ChangeEvent<HTMLInputElement>){
       const file=e.target.files?.[0]; if(!file) return;
       const r=new FileReader();
