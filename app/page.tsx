@@ -866,8 +866,41 @@ export default function Fantatipster(){
                 <CardDescription>Riepilogo scelte</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
-                {renderWeekLine(email, info, week)}
-              </CardContent>
+  {renderWeekLine(email, info, week)}
+
+  {adminLogged && (
+    <div className="pt-2">
+      <Btn
+        variant="destructive"
+        size="sm"
+        onClick={async ()=>{
+          if(!confirm(`Eliminare la schedina di ${info?.name||email} per la Week ${week}?`)) return;
+          try{
+            const r = await fetch("/api/pick", {
+              method:"POST",
+              headers:{ "Content-Type":"application/json" },
+              body: JSON.stringify({
+                delete: true,
+                email,
+                week,
+                adminPassword: adminPw
+              })
+            });
+            const j = await r.json();
+            if(!r.ok){ throw new Error(j.error || "Errore eliminazione"); }
+            alert("Schedina eliminata");
+            setLastSync(new Date().toISOString());
+          }catch(e:any){
+            alert(e?.message || "Errore eliminazione");
+          }
+        }}
+      >
+        Elimina schedina (week {week})
+      </Btn>
+    </div>
+  )}
+</CardContent>
+
             </Card>
           ))}
         </div>
