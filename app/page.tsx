@@ -555,7 +555,70 @@ export default function Fantatipster(){
     </div>
   </CardContent>
 </Card>
+            );
+          })}
+        </div>
 
+        {/* Bottone di invio schedina */}
+        <div className="flex items-center gap-3">
+          <Btn
+            variant="primary"
+            onClick={async ()=>{
+              const weekPicks = picks[user.email]?.weeks?.[week] || {};
+              const entries = Object.entries(weekPicks) as [string,'1'|'X'|'2'][];
+
+              if(entries.length===0){
+                alert("Nessuna selezione per questa settimana.");
+                return;
+              }
+
+              try {
+                // invia tutte le partite selezionate
+                for (const [mn, val] of entries) {
+                  await fetch("/api/pick", {
+                    method:"POST",
+                    headers:{ "Content-Type":"application/json" },
+                    body: JSON.stringify({
+                      email: user.email,
+                      name: user.name,
+                      week,
+                      matchNumber: Number(mn),
+                      pick: val
+                    })
+                  });
+                }
+
+                // marca la settimana come inviata con timestamp
+                const submittedAt = new Date().toISOString();
+                await fetch("/api/pick", {
+                  method:"POST",
+                  headers:{ "Content-Type":"application/json" },
+                  body: JSON.stringify({
+                    email: user.email,
+                    name: user.name,
+                    week,
+                    submit: true,
+                    submittedAt
+                  })
+                });
+
+                alert("Schedina inviata ✅");
+                setLastSync(submittedAt); // trigger refetch /api/state
+              } catch {
+                alert("Errore nell'invio ❌");
+              }
+            }}
+          >
+            Invia schedina
+          </Btn>
+          <span className="text-xs text-zinc-500">
+            Le scelte si salvano SOLO al click su “Invia schedina”.
+          </span>
+        </div>
+      </div>
+    );
+  }
+  
   function ResultsTab(){
     if(!adminLogged) return (
       <Card className="border-0 shadow-md">
