@@ -23,41 +23,95 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { email, name, week, matchNumber, pick } = body as {
-      email: string;
-      name: string;
-      week: number;
-      matchNumber: number;
-      pick: "1" | "X" | "2";
-    };
 
-    if (!email || !name || !week || !matchNumber || !pick) {
-      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
-    }
-
-    const { data, error } = await supabase
+    // 1) Carica lo stato corrente (o crea un seed minimo se assente)
+    const { data: row, error } = await supabase
       .from("states")
       .select("data")
       .eq("league", LEAGUE)
       .maybeSingle();
 
-    if (error) throw error;
-    if (!data) {
-      return NextResponse.json({ error: "League not initialized" }, { status: 400 });
+    if (error) {
+      return NextResponse.json({ error: "DB read error" }, { status: 500 });
     }
 
-    const state = (data as any).data ?? data;
+    const state: any =
+      (row as any)?.data ?? row ?? {
+        teams: [],
+        settings: {},
+        schedule: [],
+        results: {},
+        picks: {},
+        updatedAt: new Date().toISOString(),
+      };
 
-    if (!state.picks[email]) state.picks[email] = { name, weeks: {} };
-    if (!state.picks[email].weeks[week]) state.picks[email].weeks[week] = {};
-    state.picks[email].weeks[week][matchNumber] = pick;
+    if (!state.picks) state.picks = {};
+
+    // 2) Se è un INVIO FINALE, salva anche il timestamp _submittedAt
+    if (body.submit) {
+      const email = String(body.email || "").trim();
+      const name = String(body.name || "").trim();
+      const week = Number(body.week);
+      const submittedAt = body.submittedAt || new Date().toISOString();
+
+      if (!email || !week) {
+        return NextResponse.json({ error: "Missing email/week for submit" }, { status: 400 });
+      }
+
+      if (!state.picks[email]) state.picks[email] = { name, weeks: {} };
+      if (!state.picks[email].weeks) state.picks[email].weeks = {};
+      if (!state.picks[email].weeks[week]) state.picks[email].weeks[week] = {};
+
+      state.picks[email].weeks[week]._submittedAt = submittedAt;
+    }
+
+    // 3) Se è un PICK singolo, aggiorna la scelta
+    const {
+      email,
+      name,
+      week,
+      matchNumber,
+      pick,
+    }: {
+      email?: string;
+      name?: string;
+      week?: number;
+      matchNumber?: number;
+      pick?: "1" | "X" | "2";
+    } = body || {};
+
+    if (
+      email &&
+      name &&
+      typeof week === "number" &&
+      typeof matchNumber === "number" &&
+      pick
+    ) {
+      if (!state.picks[email]) state.picks[email] = { name, weeks: {} };
+      if (!state.picks[email].weeks) state.picks[email].weeks = {};
+      if (!state.picks[email].weeks[week]) state.picks[email].weeks[week] = {};
+      state.picks[email].weeks[week][matchNumber] = pick;
+    }
+
+    // Se non è né submit né pick valido → 400
+    if (!body.submit && !(email && name && typeof week === "number" && typeof matchNumber === "number" && pick)) {
+      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+    }
+
     state.updatedAt = new Date().toISOString();
 
-    const { error: updErr } = await supabase.from("states").upsert({ league: LEAGUE, data: state });
-    if (updErr) throw updErr;
+    // 4) Upsert
+    const { error: upErr } = await supabase
+      .from("states")
+      .upsert({ league: LEAGUE, data: state })
+      .eq("league", LEAGUE);
+
+    if (upErr) {
+      return NextResponse.json({ error: "DB write error" }, { status: 500 });
+    }
 
     return NextResponse.json({ ok: true });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message || String(e) }, { status: 500 });
+    return NextResponse.json({ error: e?.message || "Bad request" }, { status: 400 });
   }
 }
