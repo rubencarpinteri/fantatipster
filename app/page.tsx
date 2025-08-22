@@ -645,7 +645,7 @@ export default function Fantatipster(){
                       onChange={(e)=> setResultLocal(m.week, m.matchNumber, (e.target as HTMLInputElement).value, res.ag)} />
                   </div>
                   <div className="flex items-center gap-2">
-                    <Label className="w-16">Trasf.</</Label>
+                    <Label className="w-16">Trasf.</Label>
                     <Input type="number" inputMode="numeric" className="w-20"
                       value={res.ag} disabled={!adminLogged}
                       onChange={(e)=> setResultLocal(m.week, m.matchNumber, res.hg, (e.target as HTMLInputElement).value)} />
