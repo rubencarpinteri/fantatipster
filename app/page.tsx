@@ -235,7 +235,7 @@ export default function Fantatipster(){
         setSchedule(regen);
       }
     } catch(e){ /* cloud non configurato o offline */ }
-  })(); }, []);
+  })(); }, [lastSync]);
 
   const matchesThisWeek = useMemo(()=> schedule.filter(m=>m.week===week), [schedule, week]);
 
