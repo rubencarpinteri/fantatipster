@@ -14,8 +14,8 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from "recha
  * Fantatipster — Prediction League (single-file React app)
  * - Admin con password lato server (/api/auth)
  * - Stato condiviso su cloud (/api/state, /api/pick)
- * - Non-admin: SOLO Schedina + Classifica
- * - Admin: + Risultati, Settings, Dati, Tests
+ * - Non-admin: SOLO Schedina + Classifica + Schedine ricevute
+ * - Admin: + Risultati, Settings, Tests
  * - Admin non persistito su localStorage e forzato off a ogni load
  */
 
@@ -218,7 +218,7 @@ export default function Fantatipster(){
   // Forza stato non-admin a ogni mount
   useEffect(() => { setAdminLogged(false); setAdminPw(""); }, []);
 
-  // Carica dallo stato cloud
+  // Carica dallo stato cloud (si aggiorna quando cambia lastSync)
   useEffect(()=>{ (async()=>{
     try {
       const r = await fetch('/api/state', { cache: 'no-store' });
@@ -248,14 +248,14 @@ export default function Fantatipster(){
     });
   }
   function setPick(email:string, name:string, wk:number, matchNumber:number, value:'1'|'X'|'2'){
-  setPicks(prev=>{
-    const n={...prev};
-    if(!n[email]) n[email]={name, weeks:{} as any};
-    if(!n[email].weeks[wk]) n[email].weeks[wk]={};
-    n[email].weeks[wk][matchNumber]=value;
-    return n;
-  });
-}
+    setPicks(prev=>{
+      const n={...prev};
+      if(!n[email]) n[email]={name, weeks:{} as any};
+      if(!n[email].weeks[wk]) n[email].weeks[wk]={};
+      n[email].weeks[wk][matchNumber]=value;
+      return n;
+    });
+  }
   function setResultLocal(wk:number, matchNumber:number, hg:any, ag:any){
     setResults(prev=>({ ...prev, [`${wk}_${matchNumber}`]: { hg, ag } }));
   }
@@ -492,69 +492,57 @@ export default function Fantatipster(){
             const correct= done && myPick && myPick===sign;
             return (
               <Card key={key} className="shadow-sm">
-  <CardHeader className="pb-2">
-    <CardTitle className="flex items-center justify-between">
-      <span>{m.home} <span className="text-zinc-500">vs</span> {m.away}</span>
-      {done ? (
-        <Badge variant={correct ? 'default' : 'secondary'} className="gap-1">
-          <CheckCircle2 className="w-4 h-4" /> {sign}
-        </Badge>
-      ) : (
-        <Badge variant="outline">in attesa</Badge>
-      )}
-    </CardTitle>
-    <CardDescription>
-      Match {m.matchNumber} · Week {m.week}
-    </CardDescription>
-  </CardHeader>
-  <CardContent className="flex items-center justify-between gap-3 flex-wrap">
-    <div className="flex items-center gap-2">
-      <button
-        onClick={() =>
-          setPick(user.email, user.name, week, m.matchNumber, "1")
-        }
-        className={
-          "px-3 py-1 rounded border text-sm " +
-          (myPick === "1"
-            ? "bg-[rgb(34,197,94)] text-white border-[rgb(34,197,94)]"
-            : "bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700 hover:opacity-90")
-        }
-      >
-        1
-      </button>
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center justify-between">
+                    <span>{m.home} <span className="text-zinc-500">vs</span> {m.away}</span>
+                    {done ? (
+                      <Badge variant={correct ? 'default' : 'secondary'} className="gap-1">
+                        <CheckCircle2 className="w-4 h-4" /> {sign}
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline">in attesa</Badge>
+                    )}
+                  </CardTitle>
+                  <CardDescription>
+                    Match {m.matchNumber} · Week {m.week}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setPick(user.email, user.name, week, m.matchNumber, "1")}
+                      className={
+                        "px-3 py-1 rounded border text-sm " +
+                        (myPick === "1"
+                          ? "bg-[rgb(34,197,94)] text-white border-[rgb(34,197,94)]"
+                          : "bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700 hover:opacity-90")
+                      }
+                    >1</button>
 
-      {settings.allowDraw && (
-        <button
-          onClick={() =>
-            setPick(user.email, user.name, week, m.matchNumber, "X")
-          }
-          className={
-            "px-3 py-1 rounded border text-sm " +
-            (myPick === "X"
-              ? "bg-[rgb(34,197,94)] text-white border-[rgb(34,197,94)]"
-              : "bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700 hover:opacity-90")
-          }
-        >
-          X
-        </button>
-      )}
+                    {settings.allowDraw && (
+                      <button
+                        onClick={() => setPick(user.email, user.name, week, m.matchNumber, "X")}
+                        className={
+                          "px-3 py-1 rounded border text-sm " +
+                          (myPick === "X"
+                            ? "bg-[rgb(34,197,94)] text-white border-[rgb(34,197,94)]"
+                            : "bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700 hover:opacity-90")
+                        }
+                      >X</button>
+                    )}
 
-      <button
-        onClick={() =>
-          setPick(user.email, user.name, week, m.matchNumber, "2")
-        }
-        className={
-          "px-3 py-1 rounded border text-sm " +
-          (myPick === "2"
-            ? "bg-[rgb(34,197,94)] text-white border-[rgb(34,197,94)]"
-            : "bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700 hover:opacity-90")
-        }
-      >
-        2
-      </button>
-    </div>
-  </CardContent>
-</Card>
+                    <button
+                      onClick={() => setPick(user.email, user.name, week, m.matchNumber, "2")}
+                      className={
+                        "px-3 py-1 rounded border text-sm " +
+                        (myPick === "2"
+                          ? "bg-[rgb(34,197,94)] text-white border-[rgb(34,197,94)]"
+                          : "bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700 hover:opacity-90")
+                      }
+                    >2</button>
+                  </div>
+                </CardContent>
+              </Card>
             );
           })}
         </div>
@@ -657,7 +645,7 @@ export default function Fantatipster(){
                       onChange={(e)=> setResultLocal(m.week, m.matchNumber, (e.target as HTMLInputElement).value, res.ag)} />
                   </div>
                   <div className="flex items-center gap-2">
-                    <Label className="w-16">Trasf.</Label>
+                    <Label className="w-16">Trasf.</</Label>
                     <Input type="number" inputMode="numeric" className="w-20"
                       value={res.ag} disabled={!adminLogged}
                       onChange={(e)=> setResultLocal(m.week, m.matchNumber, res.hg, (e.target as HTMLInputElement).value)} />
@@ -803,134 +791,86 @@ export default function Fantatipster(){
     );
   }
 
+  // >>>>>>>>>> NUOVA DATA TAB (visibile a tutti) <<<<<<<<<<
   function DataTab(){
-  // Import/Export restano visibili solo se adminLogged (come da tua richiesta)
-  function handleExport(){
-    const blob=new Blob([JSON.stringify({user, settings, teams, schedule, results, picks}, null, 2)], {type:'application/json'});
-    const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='fantatipster_data.json'; a.click(); URL.revokeObjectURL(url);
-  }
-  async function handleImport(e: React.ChangeEvent<HTMLInputElement>){
-    const file = e.target.files?.[0]; if(!file) return;
-    const txt = await file.text();
-    try{
-      const j = JSON.parse(txt);
-      if (Array.isArray(j.teams)) setTeams(j.teams);
-      if (j.settings) setSettings((s:any)=> ({...s, ...j.settings}));
-      if (Array.isArray(j.schedule)) setSchedule(j.schedule);
-      if (j.results) setResults(j.results);
-      if (j.picks) setPicks(j.picks);
-      alert("Import OK (locale). Per salvare su cloud: tab Settings → Salva su cloud.");
-    }catch{ alert("File non valido"); }
-  }
-
-  // Helper: formatta riga “Week N: <HOME vs AWAY PICK - ...>  •  Inviata: <ora>”
-  function renderWeekLine(email: string, info: any, wk: number){
-    const weekMap = info.weeks?.[wk] || {};
-    const submittedAt: string | undefined = weekMap._submittedAt;
-
-    const matches = schedule
-      .filter((m:any) => m.week === wk)
-      .sort((a:any,b:any) => a.matchNumber - b.matchNumber)
-      .map((m:any) => {
-        const pick = weekMap?.[m.matchNumber] as '1'|'X'|'2'|undefined;
-        const pickOut = pick ?? '-';
-        return `${m.home} vs ${m.away} ${pickOut}`;
-      });
-
-    const lineLeft = `Week ${wk}: ${matches.join(" - ")}`;
-    const timePart = submittedAt
-      ? `Inviata: ${new Date(submittedAt).toLocaleString()}`
-      : `Non ancora inviata`;
-
-    return (
-      <div className="text-sm">
-        {lineLeft} <span className="text-xs text-zinc-500">• {timePart}</span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid gap-4">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <h3 className="text-lg font-semibold">Schedine ricevute</h3>
-        {adminLogged && (
-          <div className="flex items-center gap-2">
-            <label className="text-sm px-3 py-1 border rounded cursor-pointer">
-              Importa JSON
-              <input type="file" accept="application/json" onChange={handleImport} className="hidden"/>
-            </label>
-            <Btn onClick={handleExport}>Esporta JSON</Btn>
-          </div>
-        )}
-      </div>
-
-      {/* Mostra le schedine per l'utente corrente week */}
-      <div className="space-y-3">
-        {Object.entries(picks || {}).length === 0 && (
-          <div className="text-sm text-zinc-500">Nessuna schedina ancora inviata.</div>
-        )}
-
-        {Object.entries(picks || {}).map(([email, info]: [string, any]) => (
-          <Card key={email} className="shadow-sm">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">
-                {info?.name || email} <span className="text-zinc-500">({email})</span>
-              </CardTitle>
-              <CardDescription>Riepilogo scelte</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {renderWeekLine(email, info, week)}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-    function handleImport(e: React.ChangeEvent<HTMLInputElement>){
-      const file=e.target.files?.[0]; if(!file) return;
-      const r=new FileReader();
-      r.onload=()=>{ try{
-        const data=JSON.parse(r.result?.toString()||'{}');
-        setUser(data.user||user); setSettings(data.settings||settings);
-        setTeams(data.teams||teams); setSchedule(data.schedule||schedule);
-        setResults(data.results||results); setPicks(data.picks||picks);
-        alert('Dati importati (non ancora su cloud)');
-      }catch{ alert('JSON non valido'); } };
-      r.readAsText(file);
+    // Import/Export visibili solo all'admin
+    function handleExport(){
+      const blob=new Blob([JSON.stringify({user, settings, teams, schedule, results, picks}, null, 2)], {type:'application/json'});
+      const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='fantatipster_data.json'; a.click(); URL.revokeObjectURL(url);
     }
-    return (
-      <div className="grid md:grid-cols-2 gap-6">
-        <Card className="border-0 shadow-md">
-          <CardHeader><CardTitle className="flex items-center gap-2"><Download className="w-5 h-5"/> Esporta</CardTitle><CardDescription>Scarica un backup/istantanea</CardDescription></CardHeader>
-          <CardContent><Btn onClick={handleExport}>Scarica JSON</Btn></CardContent>
-        </Card>
-        <Card className="border-0 shadow-md">
-          <CardHeader><CardTitle className="flex items-center gap-2"><Upload className="w-5 h-5"/> Importa</CardTitle><CardDescription>Carica un JSON esportato</CardDescription></CardHeader>
-          <CardContent><input type="file" accept="application/json" onChange={handleImport} className="block w-full"/></CardContent>
-        </Card>
+    async function handleImport(e: React.ChangeEvent<HTMLInputElement>){
+      const file = e.target.files?.[0]; if(!file) return;
+      const txt = await file.text();
+      try{
+        const j = JSON.parse(txt);
+        if (Array.isArray(j.teams)) setTeams(j.teams);
+        if (j.settings) setSettings((s:any)=> ({...s, ...j.settings}));
+        if (Array.isArray(j.schedule)) setSchedule(j.schedule);
+        if (j.results) setResults(j.results);
+        if (j.picks) setPicks(j.picks);
+        alert("Import OK (locale). Per salvare su cloud: tab Settings → Salva su cloud.");
+      }catch{ alert("File non valido"); }
+    }
 
-        {adminLogged && (
-          <Card className="border-0 shadow-md md:col-span-2">
-            <CardHeader><CardTitle>Schedine ricevute (Admin)</CardTitle><CardDescription>Solo tu puoi vedere l'elenco completo</CardDescription></CardHeader>
-            <CardContent>
-              {Object.keys(picks).length===0 && <div className="text-sm text-zinc-500">Nessuna schedina ancora.</div>}
-              {Object.entries(picks).map(([email, u])=> (
-                <div key={email} className="mb-4">
-                  <div className="font-medium">{u.name || email} <span className="text-xs text-zinc-500">({email})</span></div>
-                  <div className="text-sm">
-                    {Object.entries(u.weeks||{}).map(([wk, mm])=> (
-                      <div key={wk} className="mt-1">
-                        Week {wk}: {Object.entries(mm as any).map(([mn, val])=> (<Badge key={mn} variant="secondary" className="mr-1 mb-1">M{mn}:{val as string}</Badge>))}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
+    function renderWeekLine(email: string, info: any, wk: number){
+      const weekMap = info.weeks?.[wk] || {};
+      const submittedAt: string | undefined = weekMap._submittedAt;
+
+      const matches = schedule
+        .filter((m:any) => m.week === wk)
+        .sort((a:any,b:any) => a.matchNumber - b.matchNumber)
+        .map((m:any) => {
+          const pick = weekMap?.[m.matchNumber] as '1'|'X'|'2'|undefined;
+          const pickOut = pick ?? '-';
+          return `${m.home} vs ${m.away} ${pickOut}`;
+        });
+
+      const lineLeft = `Week ${wk}: ${matches.join(" - ")}`;
+      const timePart = submittedAt
+        ? `Inviata: ${new Date(submittedAt).toLocaleString()}`
+        : `Non ancora inviata`;
+
+      return (
+        <div className="text-sm">
+          {lineLeft} <span className="text-xs text-zinc-500">• {timePart}</span>
+        </div>
+      );
+    }
+
+    return (
+      <div className="grid gap-4">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <h3 className="text-lg font-semibold">Schedine ricevute</h3>
+          {adminLogged && (
+            <div className="flex items-center gap-2">
+              <label className="text-sm px-3 py-1 border rounded cursor-pointer">
+                Importa JSON
+                <input type="file" accept="application/json" onChange={handleImport} className="hidden"/>
+              </label>
+              <Btn onClick={handleExport}>Esporta JSON</Btn>
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-3">
+          {Object.entries(picks || {}).length === 0 && (
+            <div className="text-sm text-zinc-500">Nessuna schedina ancora inviata.</div>
+          )}
+
+          {Object.entries(picks || {}).map(([email, info]: [string, any]) => (
+            <Card key={email} className="shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">
+                  {info?.name || email} <span className="text-zinc-500">({email})</span>
+                </CardTitle>
+                <CardDescription>Riepilogo scelte</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {renderWeekLine(email, info, week)}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     );
   }
@@ -968,15 +908,15 @@ export default function Fantatipster(){
     );
   }
 
-  // Tabs: NON-ADMIN → solo Schedina + Classifica. ADMIN → + Risultati, Settings, Dati, Tests
+  // Tabs: NON-ADMIN → Schedina + Classifica + Schedine ricevute. ADMIN → + Risultati, Settings, Tests
   const baseTabs = [
     { value: "pred", label: "Schedina", content: <PredictionsTab/> },
     { value: "lead", label: "Classifica", content: <LeaderboardTab/> },
+    { value: "data", label: "Schedine ricevute", content: <DataTab/> }, // visibile a tutti
   ] as const;
   const adminOnly = [
     { value: "res",  label: "Risultati", content: <ResultsTab/> },
     { value: "set",  label: "Settings",  content: <SettingsTab/> },
-    { value: "data", label: "Dati",      content: <DataTab/> },
     { value: "tests",label: "Tests",     content: <Tests/> },
   ] as const;
   const tabs = adminLogged ? [...baseTabs, ...adminOnly] : [...baseTabs];
