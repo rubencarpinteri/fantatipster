@@ -9,6 +9,8 @@ import {
   RotateCcw, ArrowLeftRight, Lock, Unlock
 } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from "recharts";
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
+
 
 function fmtTimeRome(iso?: string){
   if(!iso) return "";
@@ -767,24 +769,61 @@ export default function Fantatipster(){
         </Card>
 
         {user?.email && (
-          <Card className="border-0 shadow-md">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><BarChart3 className="w-5 h-5"/> Andamento settimanale — {user.name||user.email}</CardTitle>
-              <CardDescription>Punti per settimana</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div style={{width:'100%', height:260}}>
-                <ResponsiveContainer>
-                  <BarChart data={myWeeklyData}>
-                    <XAxis dataKey="week" hide={false} />
-                    <YAxis allowDecimals={false} />
-                    <Tooltip />
-                    <Bar dataKey="points" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
+          <Card className="border-0 shadow-lg">
+  <CardHeader>
+    <CardTitle>Andamento settimanale</CardTitle>
+    <CardDescription>Linee per tutti gli utenti (0–5 punti/sett.).</CardDescription>
+  </CardHeader>
+  <CardContent>
+    {(() => {
+      const players = Object.keys((settings?.players ?? {}) as Record<string, any>);
+      const weeks = Array.from({length: (settings?.weeks ?? 38)}, (_,i)=>i+1);
+      const pointsCorrect = settings?.pointsCorrect ?? 1;
+      const bonusPerfect = settings?.bonusPerfectWeek ?? 0;
+      const matchesPerWeek = settings?.matchesPerWeek ?? 5;
+
+      const sign = (hg:any, ag:any) => (Number(hg)>Number(ag) ? "1" : Number(hg)<Number(ag) ? "2" : "X");
+
+      const data = weeks.map(week => {
+        const row:any = { week };
+        players.forEach(u=>{
+          const picksW = (state as any)?.picks?.[u]?.weeks?.[week] ?? {};
+          let correct = 0;
+          for (let m=1; m<=matchesPerWeek; m++){
+            const res = (state as any)?.results?.[`${week}_${m}`];
+            if (!res) continue;
+            const s = sign(res?.hg, res?.ag);
+            const p = picksW?.[m as any];
+            if (p && p===s) correct++;
+          }
+          const pts = (correct*pointsCorrect) + (correct===matchesPerWeek ? bonusPerfect : 0);
+          row[u] = (Object.keys(picksW).length || correct>0) ? pts : null; // gap se non c'è dato
+        });
+        return row;
+      });
+
+      const palette = ['#e6194B','#3cb44b','#ffe119','#4363d8','#f58231','#911eb4','#46f0f0','#f032e6','#bcf60c','#fabebe'];
+
+      return (
+        <div className="h-80 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={data} margin={{ left:8, right:16, top:8, bottom:8 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="week" label={{ value:'Week', position:'insideBottomRight', offset:-5 }} />
+              <YAxis domain={[0, matchesPerWeek]} allowDecimals={false} label={{ value:'Punti', angle:-90, position:'insideLeft' }} />
+              <Tooltip />
+              <Legend />
+              {players.map((u, idx) => (
+                <Line key={u} type="monotone" dataKey={u} stroke={palette[idx % palette.length]} dot={false} connectNulls />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      );
+    })()}
+  </CardContent>
+</Card>
+
         )}
       </div>
     );
