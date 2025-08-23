@@ -809,7 +809,7 @@ export default function Fantatipster(){
             <LineChart data={data} margin={{ left:8, right:16, top:8, bottom:8 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="week" label={{ value:'Week', position:'insideBottomRight', offset:-5 }} />
-              <YAxis domain={[0, matchesPerWeek]} allowDecimals={false} label={{ value:'Punti', angle:-90, position:'insideLeft' }} />
+<YAxis domain={[0, matchesPerWeek]} ticks={Array.from({length: matchesPerWeek+1}, (_,i)=>i)} allowDecimals={false} label={{ value:'Punti', angle:-90, position:'insideLeft' }} />
               <Tooltip />
               <Legend />
               {players.map((u, idx) => (
