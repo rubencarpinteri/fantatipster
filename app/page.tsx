@@ -838,31 +838,56 @@ export default function Fantatipster(){
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-md">
-          <CardHeader className="flex justify-between items-center">
-            <div>
-              <CardTitle>Squadre & Calendario</CardTitle>
-              <CardDescription>Rigenera il calendario o salva su cloud</CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              <Btn variant="outline" size="sm" onClick={()=> setWeek(Math.max(1, week-1))}>◀</Btn>
-              <div className="text-sm text-zinc-500">Week {week}</div>
-              <Btn variant="outline" size="sm" onClick={()=> setWeek(Math.min(settings.weeks, week+1))}>▶</Btn>
-              <Btn variant="secondary" size="sm" onClick={openEditor} className="ml-2"><Edit3 className="w-4 h-4"/> Modifica settimana</Btn>
-            </div>
-          </CardHeader>
-          <CardContent className="grid gap-4">
-            <textarea className="w-full rounded-2xl border border-zinc-300 dark:border-zinc-700 p-3 min-h-[200px]"
-              value={teamInputs} onChange={(e)=> setTeamInputs((e.target as HTMLTextAreaElement).value)}></textarea>
-            <div className="flex justify-between items-center gap-2 flex-wrap">
-              <div className="text-xs text-zinc-500">{adminLogged? 'Admin attivo: puoi salvare su cloud' : 'Esegui login admin per salvare su cloud'}</div>
-              <div className="flex gap-2">
-                <Btn variant="secondary" onClick={regen}><RefreshCw className="w-4 h-4"/> Rigenera calendario</Btn>
-                <Btn disabled={!adminLogged} onClick={saveCloud}><Upload className="w-4 h-4"/> Salva su cloud</Btn>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <Card className="border-0 shadow-lg">
+  <CardHeader>
+    <CardTitle>Squadre & Calendario</CardTitle>
+    <CardDescription>Nomi squadre letti dallo stato su Supabase (sola lettura).</CardDescription>
+  </CardHeader>
+  <CardContent className="grid gap-4">
+    {/* Carica dal cloud e mostra i nomi reali */}
+    {(() => {
+      const [teamsCloud, setTeamsCloud] = React.useState<string[] | null>(null);
+      const [msg, setMsg] = React.useState("Carico…");
+
+      React.useEffect(() => {
+        let alive = true;
+        (async () => {
+          try {
+            const r = await fetch("/api/state");
+            const data = await r.json();
+            if (!alive) return;
+            const t = Array.isArray(data?.teams) ? data.teams : [];
+            setTeamsCloud(t);
+            setMsg(t.length ? "Pronto" : "Nessuna squadra trovata");
+          } catch {
+            if (!alive) return;
+            setMsg("Errore caricamento");
+          }
+        })();
+        return () => { alive = false; };
+      }, []);
+
+      if (!teamsCloud) {
+        return <div className="text-sm text-zinc-500">{msg}</div>;
+      }
+
+      return (
+        <div className="grid gap-2">
+          <div className="text-sm text-zinc-500">Totale: {teamsCloud.length}</div>
+          <ol className="list-decimal pl-5 grid gap-1">
+            {teamsCloud.map((name, i) => (
+              <li key={i} className="text-sm">{name}</li>
+            ))}
+          </ol>
+          <div className="text-xs text-zinc-500">
+            I nomi vengono da <code>states.data.teams</code> su Supabase.
+          </div>
+        </div>
+      );
+    })()}
+  </CardContent>
+</Card>
+
       </div>
     );
   }
