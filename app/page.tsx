@@ -774,7 +774,7 @@ export default function Fantatipster(){
   </CardHeader>
   <CardContent>
     {(() => {
-      // ⬇️ Cast a any per evitare l'errore TS su settings.players
+      // Usa settings/picks/results già presenti nello scope del componente
       const players = Object.keys((((settings as any)?.players) ?? {}) as Record<string, any>);
       const weeks = Array.from({ length: Number(((settings as any)?.weeks) ?? 38) }, (_, i) => i + 1);
       const pointsCorrect = Number(((settings as any)?.pointsCorrect) ?? 1);
@@ -786,17 +786,17 @@ export default function Fantatipster(){
       const data = weeks.map(week => {
         const row:any = { week };
         players.forEach(u=>{
-          const picksW = (state as any)?.picks?.[u]?.weeks?.[week] ?? {};
+          const picksW = ((picks as any)?.[u]?.weeks?.[week]) ?? {};
           let correct = 0;
           for (let m=1; m<=matchesPerWeek; m++){
-            const res = (state as any)?.results?.[`${week}_${m}`];
+            const res = ((results as any)?.[`${week}_${m}`]);
             if (!res) continue;
             const s = sign(res?.hg, res?.ag);
             const p = picksW?.[m as any];
             if (p && p===s) correct++;
           }
           const pts = (correct*pointsCorrect) + (correct===matchesPerWeek ? bonusPerfect : 0);
-          row[u] = (Object.keys(picksW).length || correct>0) ? pts : null;
+          row[u] = (Object.keys(picksW).length || correct>0) ? pts : null; // lascia buchi dove non ci sono dati
         });
         return row;
       });
@@ -822,6 +822,7 @@ export default function Fantatipster(){
     })()}
   </CardContent>
 </Card>
+
 
 
         )}
