@@ -227,6 +227,22 @@ export default function Fantatipster(){
 
   // Forza stato non-admin a ogni mount
   useEffect(() => { setAdminLogged(false); setAdminPw(""); }, []);
+  // Auto-advance: quando tutti i risultati della week corrente sono presenti, passa alla successiva (una sola volta)
+const _advRef = React.useRef<Record<number, boolean>>({});
+React.useEffect(()=>{
+  const w = Number(week);
+  const mPer = Number(((settings as any)?.matchesPerWeek) ?? 5);
+  let filled = 0;
+  for (let m=1; m<=mPer; m++){
+    const r = (results as any)?.[`${w}_${m}`];
+    if (r && r.hg !== undefined && r.ag !== undefined && String(r.hg) !== "" && String(r.ag) !== "") filled++;
+  }
+  if (filled === mPer && !_advRef.current[w]) {
+    _advRef.current[w] = true; // evita doppi advance
+    setWeek((prev:number) => Math.min(prev + 1, Number(((settings as any)?.weeks) ?? 38)));
+  }
+}, [results, week, settings]);
+
 
   // Carica dallo stato cloud (safe: una sola volta)
   useEffect(()=>{ 
