@@ -50,47 +50,64 @@ export async function POST(req: Request) {
 
     if (!state.picks) state.picks = {};
 
-    // 2) DELETE (admin): elimina schedina intera o singolo match
-    if (body.delete) {
-      const email = String(body.email || "").trim();
-      const week = Number(body.week);
-      const matchNumber = body.matchNumber != null ? Number(body.matchNumber) : undefined;
-      const adminPassword = String(body.adminPassword || "");
+    // 2) DELETE (admin): elimina schedina intera o singolo match (pulizia completa)
+if (body.delete) {
+  const adminPassword = String(body.adminPassword || "");
+  if (!ADMIN_PASSWORD) {
+    return NextResponse.json({ error: "ADMIN_PASSWORD not set" }, { status: 500 });
+  }
+  if (adminPassword !== ADMIN_PASSWORD) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-      if (!ADMIN_PASSWORD) {
-        return NextResponse.json({ error: "ADMIN_PASSWORD not set" }, { status: 500 });
-      }
-      if (adminPassword !== ADMIN_PASSWORD) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-      }
-      if (!email || !week) {
-        return NextResponse.json({ error: "Missing email/week for delete" }, { status: 400 });
-      }
+  const email = String(body.email || "").trim().toLowerCase();
+  const week = body.week != null ? Number(body.week) : undefined;
+  const matchNumber = body.matchNumber != null ? Number(body.matchNumber) : undefined;
 
-      if (!state.picks[email] || !state.picks[email].weeks || !state.picks[email].weeks[week]) {
-        return NextResponse.json({ ok: true }); // idempotente
-      }
+  if (!email) {
+    return NextResponse.json({ error: "Missing email" }, { status: 400 });
+  }
 
-      if (typeof matchNumber === "number") {
-        delete state.picks[email].weeks[week][matchNumber];
-      } else {
+  // Prepara contenitori se mancanti (idempotente)
+  if (!state.picks[email]) state.picks[email] = { name: body.name || email, weeks: {} };
+  if (!state.picks[email].weeks) state.picks[email].weeks = {};
+
+  if (week && matchNumber) {
+    // rimuovi solo un match della week
+    if (state.picks[email].weeks[week]) {
+      delete (state.picks[email].weeks[week] as any)[matchNumber];
+      // se non restano match, elimina tutta la week; altrimenti togli _submittedAt
+      const w = state.picks[email].weeks[week] as any;
+      const left = Object.keys(w).filter(k => k !== "_submittedAt");
+      if (left.length === 0) {
         delete state.picks[email].weeks[week];
+      } else {
+        delete w._submittedAt;
       }
-
-      // opzionale: se vuoto, potresti rimuovere l'utente
-      // if (state.picks[email] && Object.keys(state.picks[email].weeks || {}).length === 0) {
-      //   delete state.picks[email];
-      // }
-
-      state.updatedAt = new Date().toISOString();
-      const { error: upErr } = await supabase
-        .from("states")
-        .upsert({ league: LEAGUE, data: state })
-        .eq("league", LEAGUE);
-
-      if (upErr) return NextResponse.json({ error: "DB write error" }, { status: 500 });
-      return NextResponse.json({ ok: true });
     }
+  } else if (week) {
+    // rimuovi tutta la week
+    delete state.picks[email].weeks[week];
+  } else {
+    // opzionale: rimuovi tutte le picks dell'utente
+    delete state.picks[email];
+  }
+
+  // pulizia: se l'utente non ha più weeks, rimuovilo dal nodo picks
+  if (state.picks[email] && Object.keys(state.picks[email].weeks || {}).length === 0) {
+    delete state.picks[email];
+  }
+
+  state.updatedAt = new Date().toISOString();
+  const { error: upErr } = await supabase
+    .from("states")
+    .upsert({ league: LEAGUE, data: state })
+    .eq("league", LEAGUE);
+
+  if (upErr) return NextResponse.json({ error: "DB write error" }, { status: 500 });
+  return NextResponse.json({ ok: true });
+}
+
 
     // 3) INVIO FINALE: salva timestamp _submittedAt
     if (body.submit) {
