@@ -8,9 +8,7 @@ import {
   CheckCircle2, User, Star, BarChart3, RefreshCw, LogOut, Edit3,
   RotateCcw, ArrowLeftRight, Lock, Unlock
 } from "lucide-react";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from "recharts";
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
-
+import { ResponsiveContainer, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 
 function fmtTimeRome(iso?: string){
   if(!iso) return "";
