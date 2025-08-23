@@ -774,11 +774,12 @@ export default function Fantatipster(){
   </CardHeader>
   <CardContent>
     {(() => {
-      const players = Object.keys((settings?.players ?? {}) as Record<string, any>);
-      const weeks = Array.from({length: (settings?.weeks ?? 38)}, (_,i)=>i+1);
-      const pointsCorrect = settings?.pointsCorrect ?? 1;
-      const bonusPerfect = settings?.bonusPerfectWeek ?? 0;
-      const matchesPerWeek = settings?.matchesPerWeek ?? 5;
+      // ⬇️ Cast a any per evitare l'errore TS su settings.players
+      const players = Object.keys((((settings as any)?.players) ?? {}) as Record<string, any>);
+      const weeks = Array.from({ length: Number(((settings as any)?.weeks) ?? 38) }, (_, i) => i + 1);
+      const pointsCorrect = Number(((settings as any)?.pointsCorrect) ?? 1);
+      const bonusPerfect = Number(((settings as any)?.bonusPerfectWeek) ?? 0);
+      const matchesPerWeek = Number(((settings as any)?.matchesPerWeek) ?? 5);
 
       const sign = (hg:any, ag:any) => (Number(hg)>Number(ag) ? "1" : Number(hg)<Number(ag) ? "2" : "X");
 
@@ -795,7 +796,7 @@ export default function Fantatipster(){
             if (p && p===s) correct++;
           }
           const pts = (correct*pointsCorrect) + (correct===matchesPerWeek ? bonusPerfect : 0);
-          row[u] = (Object.keys(picksW).length || correct>0) ? pts : null; // gap se non c'è dato
+          row[u] = (Object.keys(picksW).length || correct>0) ? pts : null;
         });
         return row;
       });
@@ -821,6 +822,7 @@ export default function Fantatipster(){
     })()}
   </CardContent>
 </Card>
+
 
         )}
       </div>
